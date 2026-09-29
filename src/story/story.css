@@ -1,0 +1,292 @@
+/* The story's own DOM: the tool ring, fades and day cards, and the insides of the
+   set-up and logger mini-games (the UI kit draws their cards). Sizes are in em of
+   the UI unit --u and colours are the UI's tokens (src/ui/style.css). */
+
+/* ---------------------------------------------------------------- tool ring */
+
+.tr-ring {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+  background: radial-gradient(circle at center, rgba(255, 248, 230, 0.18), rgba(40, 50, 40, 0.28) 70%);
+  animation: tr-fade 0.16s ease-out;
+  z-index: 4;
+}
+.tr-ring.is-out {
+  opacity: 0;
+  transition: opacity 0.16s;
+}
+.tr-disc {
+  position: relative;
+  width: 21em;
+  height: 21em;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 248, 230, 0.96) 0 32%, rgba(255, 248, 230, 0.55) 33% 100%);
+  border: 0.18em solid var(--paper-edge);
+  box-shadow: var(--shadow);
+  animation: tr-pop 0.22s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.tr-slot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4.2em;
+  height: 4.2em;
+  margin: -2.1em 0 0 -2.1em;
+  transform: translate(var(--x), var(--y));
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 0.16em solid var(--paper-edge);
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 0.18em 0 rgba(120, 90, 40, 0.2);
+  cursor: pointer;
+  pointer-events: auto;
+  animation: tr-slot-in 0.28s ease-out backwards;
+  transition: transform 0.14s, background 0.14s, border-color 0.14s;
+}
+.tr-slot .ui-icon {
+  width: 2.1em;
+  height: 2.1em;
+}
+.tr-slot kbd {
+  position: absolute;
+  right: -0.35em;
+  bottom: -0.3em;
+  font-size: 0.7em;
+}
+.tr-slot.is-current {
+  border-color: var(--leaf);
+}
+.tr-slot.is-on {
+  transform: translate(var(--x), var(--y)) scale(1.22);
+  background: #fff3c4;
+  border-color: var(--gold);
+  box-shadow: 0 0.22em 0 rgba(200, 150, 40, 0.35), 0 0 0 0.35em rgba(245, 197, 66, 0.25);
+  animation: tr-wobble 0.4s ease-in-out;
+}
+.tr-centre {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 9.6em;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+}
+.tr-name b {
+  display: block;
+  font: 800 1.15em/1.15 var(--font-display);
+  color: var(--leaf-dark);
+}
+.tr-name small {
+  display: block;
+  margin-top: 0.2em;
+  color: var(--ink-soft);
+  font-weight: 700;
+  font-size: 0.78em;
+}
+.tr-help {
+  margin-top: 0.5em;
+  color: var(--ink-soft);
+  font-size: 0.8em;
+  font-weight: 700;
+}
+@keyframes tr-fade { from { opacity: 0; } }
+@keyframes tr-pop { from { transform: scale(0.6); opacity: 0; } }
+@keyframes tr-slot-in { from { transform: translate(0, 0) scale(0.3); opacity: 0; } }
+@keyframes tr-wobble {
+  0% { transform: translate(var(--x), var(--y)) scale(1.05) rotate(0); }
+  35% { transform: translate(var(--x), var(--y)) scale(1.28) rotate(-7deg); }
+  70% { transform: translate(var(--x), var(--y)) scale(1.2) rotate(5deg); }
+  100% { transform: translate(var(--x), var(--y)) scale(1.22) rotate(0); }
+}
+
+/* ---------------------------------------------------------------- fades and day cards */
+
+.st-fade {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #2c4a44;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.7s ease;
+  z-index: 5;
+}
+.st-fade.is-on {
+  opacity: 1;
+  pointer-events: auto;
+}
+.st-fade-card {
+  text-align: center;
+  color: #fff8e6;
+  opacity: 0;
+  transform: translateY(0.6em) scale(0.96);
+  transition: opacity 0.6s 0.25s, transform 0.6s 0.25s;
+}
+.st-fade.is-on.has-card .st-fade-card {
+  opacity: 1;
+  transform: none;
+}
+.st-fade-card b {
+  display: block;
+  font: 800 3.2em/1.1 var(--font-display);
+  letter-spacing: 0.01em;
+  text-shadow: 0 0.08em 0 rgba(0, 0, 0, 0.25);
+}
+.st-fade-card span {
+  display: block;
+  margin-top: 0.4em;
+  font-weight: 700;
+  font-size: 1.15em;
+  color: #bfe6a0;
+}
+
+/* ---------------------------------------------------------------- shared bits */
+
+.st-flag, .st-read, .st-floss {
+  position: relative;
+  width: 26em;
+  height: 14em;
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 0.9em;
+  touch-action: none;
+  cursor: pointer;
+}
+.st-flag-tries {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0.6em;
+  text-align: center;
+  color: var(--coral-deep);
+  font-weight: 800;
+  font-size: 0.95em;
+  pointer-events: none;
+}
+.is-shake {
+  animation: st-shake 0.35s ease-in-out;
+}
+@keyframes st-shake {
+  20% { transform: translateX(-0.3em); }
+  45% { transform: translateX(0.3em); }
+  70% { transform: translateX(-0.15em); }
+}
+
+/* ---------------------------------------------------------------- plant a flag */
+
+.st-flag {
+  background: linear-gradient(#bfe6ff, #eaf6ff 55%, transparent 55%);
+}
+
+@keyframes st-pop {
+  from { transform: scale(0.4); }
+}
+
+/* ---------------------------------------------------------------- tie on a logger */
+
+@keyframes st-blink { 50% { opacity: 0.25; } }
+
+/* ---------------------------------------------------------------- read a logger */
+
+.st-read {
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 50% 40%, #fff6d8, #fbf2dc 60%);
+}
+.st-read-box {
+  position: relative;
+  width: 13em;
+  padding: 1.2em 1em 0.9em;
+  border-radius: 1.2em;
+  background: #f7f5ee;
+  border: 0.2em solid #d7d2c3;
+  box-shadow: 0 0.3em 0 #c9c3b1, var(--shadow);
+  text-align: center;
+}
+.st-read-lcd {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.2em;
+  height: 2.4em;
+  border-radius: 0.5em;
+  background: #9fb39a;
+  color: rgba(30, 45, 30, 0.12);
+  box-shadow: inset 0 0.18em 0 rgba(0, 0, 0, 0.18);
+  font: 800 1.9em/1.25 ui-monospace, "SF Mono", Menlo, monospace;
+  transition: background 0.2s, color 0.2s;
+}
+.st-read-lcd small {
+  font-size: 0.5em;
+}
+.st-read-lcd.is-on {
+  background: #c8f0b0;
+  color: rgba(30, 60, 30, 0.55);
+}
+.st-read-lcd.is-value {
+  color: #1f3a22;
+}
+.st-read-lcd.is-blink {
+  color: rgba(30, 60, 30, 0.2);
+}
+.st-read-lcd.is-caught {
+  background: #fff3a8;
+  color: #3a3218;
+  animation: st-pop 0.35s cubic-bezier(0.3, 1.8, 0.5, 1);
+}
+.st-read-led {
+  position: absolute;
+  right: 0.8em;
+  top: 0.45em;
+  width: 0.5em;
+  height: 0.5em;
+  border-radius: 50%;
+  background: #62d26f;
+  animation: st-blink 1.2s steps(2) infinite;
+}
+.st-read-name {
+  margin-top: 0.5em;
+  font: 800 1em/1.2 var(--font-display);
+  color: var(--ink-soft);
+}
+
+/* ---------------------------------------------------------------- tie the floss loop */
+
+.st-floss {
+  background: radial-gradient(ellipse at 60% 50%, #fffaf0, #fbf2dc 70%);
+}
+.st-floss-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.st-floss-pct {
+  font: 800 22px/1 var(--font-display);
+  fill: var(--leaf-deep);
+}
+.st-floss.is-off .st-floss-tip {
+  stroke: var(--coral);
+}
+.st-floss.is-done .st-floss-line {
+  stroke: #fff6c8;
+  filter: drop-shadow(0 0 4px #ffd84a);
+}
+.st-floss.is-done .st-floss-knot {
+  animation: st-knot 0.5s ease-out;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+@keyframes st-knot {
+  40% { transform: scale(1.8); }
+}
+
+/* ---------------------------------------------------------------- set up the station */
+

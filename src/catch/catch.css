@@ -1,0 +1,397 @@
+/* Catching: the loop pole's target ring and tether, snug-the-loop, the spotting ring and
+   the catch-and-release cards. Colours follow the UI kit's tokens in src/ui/style.css. */
+
+/* ---------------------------------------------------------------- the loop pole overlay */
+
+.loop-pole-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+  overflow: visible;
+}
+.loop-pole-overlay.is-on { opacity: 1; }
+.loop-pole-tether {
+  stroke: #fff8e6;
+  stroke-width: 2.5;
+  stroke-dasharray: 2 7;
+  stroke-linecap: round;
+  opacity: 0;
+  filter: drop-shadow(0 1px 1px rgba(40, 50, 40, 0.5));
+}
+.loop-pole-pointer {
+  fill: none;
+  stroke: #fff8e6;
+  stroke-width: 2.5;
+  opacity: 0;
+  filter: drop-shadow(0 1px 1px rgba(40, 50, 40, 0.5));
+}
+.loop-pole-overlay.has-pointer.has-tether .loop-pole-pointer,
+.loop-pole-overlay.has-tether .loop-pole-tether { opacity: 0.9; }
+
+.loop-pole-target { opacity: 0; transition: opacity 0.15s; }
+.loop-pole-target.is-near, .loop-pole-target.is-ready, .loop-pole-target.is-show, .loop-pole-target.is-far, .loop-pole-target.is-high, .loop-pole-target.is-behind,
+.loop-pole-target.is-lock, .loop-pole-target.is-spot, .loop-pole-target.is-turn, .loop-pole-target.is-croc, .loop-pole-target.is-crocClose,
+.loop-pole-target.is-hidden { opacity: 1; }
+.loop-pole-target-ring {
+  fill: none;
+  stroke: #fff8e6;
+  stroke-width: 3;
+  stroke-dasharray: 7 6;
+  filter: drop-shadow(0 1px 2px rgba(40, 50, 40, 0.55));
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: loop-pole-spin 6s linear infinite;
+}
+.loop-pole-target-core {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 6;
+}
+.loop-pole-target.is-ready .loop-pole-target-ring {
+  stroke: #9dffb0;
+  stroke-width: 3;
+  stroke-dasharray: none;
+  animation: loop-pole-pulse 0.7s ease-in-out infinite;
+}
+.loop-pole-target.is-ready .loop-pole-target-core { stroke: rgba(108, 191, 79, 0.28); stroke-width: 9; }
+.loop-pole-target.is-show .loop-pole-target-ring {
+  stroke: #ffd84a;
+  stroke-width: 3.5;
+  stroke-dasharray: none;
+  animation: loop-pole-pulse 0.4s ease-in-out infinite;
+}
+.loop-pole-target.is-show .loop-pole-target-core { stroke: rgba(255, 196, 60, 0.35); stroke-width: 10; }
+.loop-pole-target.is-far .loop-pole-target-ring,
+.loop-pole-target.is-high .loop-pole-target-ring,
+.loop-pole-target.is-behind .loop-pole-target-ring,
+.loop-pole-target.is-spot .loop-pole-target-ring,
+.loop-pole-target.is-turn .loop-pole-target-ring,
+.loop-pole-target.is-hidden .loop-pole-target-ring {
+  stroke: #d9d2c2;
+  stroke-dasharray: 3 7;
+  animation: none;
+}
+/* a crocodile to spot: orange dashes */
+.loop-pole-target.is-croc .loop-pole-target-ring, .loop-pole-target.is-crocClose .loop-pole-target-ring {
+  stroke: #ffb08f;
+  stroke-dasharray: 4 6;
+}
+/* lock-on: a soft highlight round the lizard the loop is gliding to */
+.loop-pole-target.is-lock .loop-pole-target-ring {
+  stroke: #fff8e6;
+  stroke-width: 3;
+  stroke-dasharray: none;
+  animation: loop-pole-breathe 1.4s ease-in-out infinite;
+}
+.loop-pole-target.is-lock .loop-pole-target-core { stroke: rgba(255, 248, 230, 0.3); stroke-width: 10; }
+/* the other lizards in reach: a small dotted ring each */
+.loop-pole-alt {
+  fill: none;
+  stroke: #fff8e6;
+  stroke-width: 2.2;
+  stroke-dasharray: 2 5;
+  stroke-linecap: round;
+  opacity: 0;
+  transition: opacity 0.2s;
+  filter: drop-shadow(0 1px 1px rgba(40, 50, 40, 0.5));
+}
+.loop-pole-alt.is-on { opacity: 0.8; }
+@keyframes loop-pole-spin { to { transform: rotate(360deg); } }
+@keyframes loop-pole-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.95; }
+  50% { transform: scale(1.08); opacity: 0.7; }
+}
+@keyframes loop-pole-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(0.84); }
+}
+
+.loop-pole-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.loop-pole-label span {
+  display: block;
+  padding: 0.18em 0.7em 0.24em;
+  border-radius: 999px;
+  background: rgba(255, 248, 230, 0.94);
+  color: var(--ink, #4a3e2c);
+  font: 800 0.8em/1.2 var(--font, system-ui);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: 0 0.15em 0.5em rgba(40, 60, 50, 0.25);
+  transition: opacity 0.15s;
+}
+.loop-pole-label.is-on span { opacity: 1; }
+.loop-pole-label.is-show span {
+  background: #f5c542;
+  color: #5a3a08;
+  font-size: 0.95em;
+  animation: ui-wobble 0.4s ease-in-out infinite;
+}
+.loop-pole-label.is-ready span {
+  background: var(--leaf, #6cbf4f);
+  color: #fff;
+  font-size: 0.95em;
+  animation: ui-wobble 0.6s ease-in-out infinite;
+}
+.loop-pole-label.is-lock span { font-size: 0.95em; }
+.loop-pole-label.is-high span, .loop-pole-label.is-far span, .loop-pole-label.is-spot span, .loop-pole-label.is-hidden span { background: rgba(255, 248, 230, 0.9); }
+.loop-pole-label.is-croc span { background: #fff3ea; color: #c7502c; }
+.loop-pole-label.is-crocClose span { background: #ff8a5c; color: #fff; animation: ui-wobble 0.5s ease-in-out infinite; }
+
+/* ---------------------------------------------------------------- snug the loop */
+
+.snug {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  display: none;
+}
+.snug.is-on { display: block; }
+.snug svg {
+  position: absolute;
+  left: -150px;
+  top: -150px;
+  overflow: visible;
+  animation: snug-in 0.3s ease-out;
+}
+.snug.is-out svg { animation: snug-out 0.26s ease-in forwards; }
+.snug-guide { fill: none; stroke: rgba(255, 248, 230, 0.7); stroke-width: 2; stroke-dasharray: 4 7; }
+.snug-band { fill: none; stroke: rgba(126, 227, 104, 0.42); }
+.snug-sweet { fill: none; stroke: rgba(255, 222, 90, 0.95); }
+.snug-ring { fill: none; stroke: #ff6f61; stroke-width: 6; filter: drop-shadow(0 2px 2px rgba(60, 30, 20, 0.45)); }
+.snug-knot { fill: #ff6f61; stroke: #fff8e6; stroke-width: 2.5; }
+.snug.is-in .snug-ring { stroke: #ff9a4a; stroke-width: 7; }
+.snug.is-in .snug-band { stroke: rgba(126, 227, 104, 0.7); }
+.snug-glow { fill: url(#snugGlow); }
+.snug.is-good .snug-ring { stroke: #6cbf4f; }
+.snug.is-good .snug-knot { fill: #6cbf4f; }
+.snug.is-miss svg { animation: snug-shake 0.4s ease-in-out; }
+.snug.is-miss .snug-ring { stroke: #c9b9a4; stroke-dasharray: 8 8; }
+.snug-word {
+  position: absolute;
+  left: 0;
+  top: 128px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font: 900 1.6em/1 var(--font-display, system-ui);
+  color: #fff;
+  text-shadow: 0 0.08em 0 #3f8f4c, 0 0 0.4em rgba(40, 60, 40, 0.5);
+}
+.snug.is-miss .snug-word { text-shadow: 0 0.08em 0 #e0643c, 0 0 0.4em rgba(60, 30, 20, 0.5); }
+.snug-word.is-pop { animation: ui-pop 0.35s ease-out; }
+.snug-word.is-tip { font-size: 0.95em; font-weight: 800; text-shadow: 0 0.06em 0 rgba(40, 60, 40, 0.6), 0 0 0.5em rgba(40, 60, 40, 0.55); }
+.snug-burst { opacity: 0; stroke: #ffe066; stroke-width: 5; stroke-linecap: round; transform-origin: 0 0; }
+.snug.is-good .snug-burst { animation: snug-burst 0.55s ease-out; }
+@keyframes snug-burst {
+  0% { opacity: 1; transform: scale(0.5); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.35); }
+}
+.snug-pips {
+  position: absolute;
+  left: 0;
+  top: -146px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+}
+.snug-pips i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(255, 248, 230, 0.7);
+  border: 2px solid #4a3e2c;
+}
+.snug-pips i.is-good { background: #6cbf4f; }
+.snug-pips i.is-miss { background: #ff8a5c; }
+@keyframes snug-in { from { transform: scale(1.35); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes snug-out { to { transform: scale(0.6); opacity: 0; } }
+@keyframes snug-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-9px) rotate(-4deg); }
+  60% { transform: translateX(8px) rotate(3deg); }
+}
+
+/* ---------------------------------------------------------------- spotting */
+
+.spot-ring {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.spot-ring.is-on { opacity: 1; }
+.spot-ring svg { position: absolute; left: -23px; top: -44px; filter: drop-shadow(0 1px 2px rgba(40, 50, 40, 0.5)); }
+.spot-back { fill: rgba(255, 248, 230, 0.85); stroke: rgba(74, 62, 44, 0.35); stroke-width: 3; }
+.spot-fill { fill: none; stroke: #3fb0ad; stroke-width: 4; stroke-linecap: round; }
+.spot-eye { fill: #fff; stroke: #4a3e2c; stroke-width: 1.6; }
+.spot-pupil { fill: #4a3e2c; }
+.spot-ring span {
+  position: absolute;
+  left: 0;
+  top: 6px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  padding: 0.1em 0.6em 0.16em;
+  border-radius: 999px;
+  background: #ff8a5c;
+  color: #fff;
+  font: 800 0.75em/1.2 var(--font, system-ui);
+}
+.spot-ring span:empty { display: none; }
+.spot-ring.is-warn .spot-fill { stroke: #ff8a5c; }
+
+/* ---------------------------------------------------------------- the release cards */
+
+.catch-stage {
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  background: #fbf2dc;
+}
+.catch-svg { width: 100%; height: 100%; display: block; }
+.catch-small { font: 700 12px var(--font, system-ui); fill: #85735a; }
+.catch-reading-text { font: 800 15px var(--font, system-ui); }
+
+.catch-bag-wrap {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+}
+.catch-bag { height: 100%; max-width: 100%; border-radius: 0.8em; }
+.catch-bag-sway { transform-origin: 200px 30px; animation: catch-bag-sway 2.6s ease-in-out infinite; }
+.catch-rays { transform-origin: 318px 40px; animation: catch-rays 18s linear infinite; }
+.catch-sparkles path { transform-box: fill-box; transform-origin: center; animation: catch-twinkle 1.6s ease-in-out infinite; }
+.catch-sparkles path:nth-child(2) { animation-delay: 0.5s; }
+.catch-sparkles path:nth-child(3) { animation-delay: 1s; }
+@keyframes catch-bag-sway {
+  0%, 100% { transform: rotate(-3deg) translateY(0); }
+  50% { transform: rotate(3deg) translateY(-4px); }
+}
+@keyframes catch-rays { to { transform: rotate(360deg); } }
+@keyframes catch-twinkle {
+  0%, 100% { transform: scale(0.6); opacity: 0.5; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+
+.catch-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.35em;
+  max-width: 100%;
+}
+.catch-chip {
+  padding: 0.14em 0.65em 0.2em;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 0.8em;
+  background: var(--paper-2, #f7ebcf);
+  color: var(--ink, #4a3e2c);
+  border: 0.1em solid var(--paper-edge, #e5cf9f);
+  animation: ui-pop 0.35s ease-out both;
+}
+.catch-chip:nth-child(2) { animation-delay: 0.08s; }
+.catch-chip:nth-child(3) { animation-delay: 0.16s; }
+.catch-chip:nth-child(4) { animation-delay: 0.24s; }
+.catch-chip:nth-child(5) { animation-delay: 0.32s; }
+.catch-chip.tone-good { background: #e3f5d6; border-color: #a9d98c; color: #2b6a3f; }
+.catch-chip.tone-gold { background: #fff0c2; border-color: #f5c542; color: #8a5a10; }
+.catch-next { margin-bottom: 0.2em; }
+.catch-next kbd { background: rgba(255, 255, 255, 0.85); }
+
+.catch-target {
+  fill: rgba(255, 255, 255, 0.35);
+  stroke: #fff;
+  stroke-width: 2.5;
+  stroke-dasharray: 5 4;
+}
+.catch-dab { transform-box: fill-box; transform-origin: center; animation: ui-pop 0.3s ease-out; }
+.catch-pen { pointer-events: none; }
+.catch-stage svg { cursor: crosshair; touch-action: none; }
+
+.catch-settle { fill: none; stroke: #6cbf4f; stroke-width: 5; stroke-linecap: round; }
+.catch-steady-bar { fill: #6cbf4f; transition: fill 0.2s; }
+.catch-steady-bar.is-mid { fill: #f5c542; }
+.catch-steady-bar.is-low { fill: #ff8a5c; }
+.catch-tries circle { fill: #fff; stroke: #3a2f2a; stroke-width: 2; }
+.catch-tries circle.is-used { fill: #ff8a5c; }
+.catch-pack.is-on { animation: ui-pop 0.3s ease-out; }
+
+.catch-notes {
+  background:
+    repeating-linear-gradient(to bottom, transparent 0, transparent 1.95em, var(--paper-line, rgba(120, 160, 200, 0.22)) 1.95em, var(--paper-line, rgba(120, 160, 200, 0.22)) 2em),
+    #fffaf0 !important;
+}
+.catch-page {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.4em 1em;
+  text-align: left;
+}
+.catch-line {
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+  min-height: 2em;
+}
+.catch-line b {
+  flex: none;
+  width: 6.4em;
+  color: var(--ink-soft, #85735a);
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.catch-line span { font-weight: 700; display: flex; align-items: center; gap: 0.4em; flex-wrap: wrap; }
+.catch-dot {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  border-radius: 50%;
+  border: 0.12em solid #fff;
+  box-shadow: 0 0 0 0.08em #3a2f2a;
+}
+.catch-perch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  padding: 0.16em 0.55em 0.22em;
+  border-radius: 999px;
+  border: 0.12em solid var(--paper-edge, #e5cf9f);
+  background: #fff;
+  color: var(--ink, #4a3e2c);
+  font-weight: 800 !important;
+  font-size: 0.82em;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform 0.12s, background 0.12s;
+}
+.catch-perch-btn svg { width: 1.2em; height: 1.2em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.catch-perch-btn i { font-style: normal; font-size: 0.75em; color: var(--ink-soft, #85735a); }
+.catch-line span.catch-perch { flex-wrap: nowrap; gap: 0.3em; }
+.catch-perch-btn:hover, .catch-perch-btn.is-focus { transform: translateY(-0.08em) scale(1.04); background: #f1fae9; border-color: #a9d98c; }
+.catch-perch-btn.is-right { background: var(--leaf, #6cbf4f); border-color: var(--leaf-deep, #3f8f4c); color: #fff; }
+.catch-perch-btn.is-wrong { background: #ffe2d4; border-color: #ff8a5c; text-decoration: line-through; }
+.catch-perch-btn:disabled { cursor: default; }

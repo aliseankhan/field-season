@@ -1,0 +1,226 @@
+{
+ "frame": {
+  "origin_E": 573150,
+  "origin_N": 2840100,
+  "origin_h": -24.9,
+  "axes": "x = E - E0, y = h - h0, z = -(N - N0)"
+ },
+ "swatches": {
+  "lawn_sun": "#a9bd6c",
+  "lawn_shade": "#3d493a",
+  "litter": "#a79974",
+  "mud": "#7e7155",
+  "path": "#ece6db",
+  "bank_grass": "#b8be73",
+  "water_shallow": "#7f715b",
+  "water_deep": "#4e5152",
+  "water_foam": "#f7f0e5",
+  "crown_broadleaf": [
+   "#596d3b",
+   "#828f4f",
+   "#91a061",
+   "#91a74b",
+   "#a7b36d"
+  ],
+  "crown_palm": [
+   "#718040",
+   "#959b51",
+   "#b4b85b"
+  ],
+  "crown_talipot": "#77844b",
+  "crown_mangrove": [
+   "#65754a",
+   "#83944e",
+   "#9caf51"
+  ],
+  "shrub": [
+   "#485643",
+   "#67784a",
+   "#a2b267"
+  ],
+  "canopy_puff": [
+   "#6a7847",
+   "#7f914c",
+   "#a0ae63",
+   "#a0b54d"
+  ],
+  "understorey": [
+   "#596946",
+   "#7f8e52",
+   "#a4b563"
+  ],
+  "trunk_bark": "#76634f",
+  "trunk_palm": "#a09482",
+  "trunk_mangrove": "#6d4c3d",
+  "rainbow_trunk": [
+   "#a5d15a",
+   "#3ea7a0",
+   "#4f7fc2",
+   "#7c5ba8",
+   "#e38b3b",
+   "#7b2f3a"
+  ],
+  "osprey_pole": "#9a9083",
+  "nest": "#8f6f47",
+  "sky_top": "#5ea9e2",
+  "sky_horizon": "#cfe7f1",
+  "fog": "#d5e6e3"
+ },
+ "landmark_tints": {
+  "T001": "#a7b84d",
+  "T002": "#b6bb82",
+  "T003": "#7f934a",
+  "T004": "#899e56",
+  "T005": "#9cae4a",
+  "T006": "#9daa59",
+  "T007": "#7a844d",
+  "T008": "#828d50",
+  "T009": "#576540",
+  "T010": "#919e59",
+  "T011": "#a0a960",
+  "T012": "#576d38",
+  "T013": "#828f4f",
+  "T014": "#536630",
+  "T015": "#8da53f",
+  "T016": "#8c9b56",
+  "T017": "#99a74d",
+  "T018": "#799841",
+  "T019": "#798549",
+  "T020": "#8f9863",
+  "T021": "#717f3e",
+  "T022": "#889f4b",
+  "T023": "#93b54c",
+  "T024": "#78874e",
+  "T025": "#85954e",
+  "T026": "#8a9b61",
+  "T027": "#a7b175",
+  "T028": "#556d48",
+  "T029": "#6c7a4c",
+  "T030": "#92a16d",
+  "T031": "#adbb6b",
+  "T032": "#92a64b",
+  "T034": "#99a663",
+  "T035": "#adb96b",
+  "T036": "#c3c3a3",
+  "T037": "#9baf6c",
+  "T038": "#97ad5a"
+ },
+ "variant_weights": {
+  "crown_broadleaf": [
+   0.182,
+   0.136,
+   0.182,
+   0.318,
+   0.182
+  ],
+  "crown_palm": [
+   0.216,
+   0.451,
+   0.333
+  ],
+  "crown_mangrove": [
+   0.258,
+   0.407,
+   0.335
+  ],
+  "shrub": [
+   0.277,
+   0.198,
+   0.525
+  ],
+  "canopy_puff": [
+   0.221,
+   0.366,
+   0.202,
+   0.212
+  ],
+  "understorey": [
+   0.455,
+   0.306,
+   0.239
+  ]
+ },
+ "raw": {
+  "lawn_sun": "#9dad69",
+  "lawn_shade": "#2d372b",
+  "litter": "#938768",
+  "mud": "#685e47",
+  "path": "#e5e0d7",
+  "bank_grass": "#aaaf71",
+  "water_shallow": "#695d4b",
+  "water_deep": "#3c3e3f",
+  "crown_broadleaf": [
+   "#47582f",
+   "#707b46",
+   "#818d59",
+   "#829449",
+   "#99a369"
+  ],
+  "crown_palm": [
+   "#5f6b37",
+   "#83884b",
+   "#a5a85b"
+  ],
+  "crown_talipot": "#656f40",
+  "crown_mangrove": [
+   "#53603d",
+   "#728047",
+   "#8e9e50"
+  ],
+  "shrub": [
+   "#374333",
+   "#55633d",
+   "#94a163"
+  ],
+  "canopy_puff": [
+   "#57633b",
+   "#6e7d44",
+   "#929c5e",
+   "#92a34d"
+  ],
+  "understorey": [
+   "#485438",
+   "#6e7a49",
+   "#97a460"
+  ]
+ },
+ "sources": {
+  "lawn_sun": "island lawn under 0.3 m vegetation, 0.5 m clear of plants, sunlit (above the Otsu split)",
+  "lawn_shade": "island lawn within 4 m of canopy over 2 m, in shadow (below the Otsu split)",
+  "litter": "island ground within 3 m of canopy that is brown, not green, and not the pale sun-bleached fallen wood (L* 70 and over)",
+  "mud": "brown, bare cells within 2 m of the water line (shore mud)",
+  "path": "pale grey cells on the far banks (garden paths)",
+  "bank_grass": "far-bank lawn under 0.3 m vegetation, sunlit, not path",
+  "water_shallow": "middle cluster: tea-coloured water over the visible bed (40%)",
+  "water_deep": "darkest of 3 k-means clusters of open water (53% of it)",
+  "water_foam": "chosen: derived from the shelf water hue",
+  "crown_broadleaf": "5 k-means groups of the median colours of the 22 broadleaf landmark crowns",
+  "crown_palm": "3 k-means groups of per-palm median colours (the palm landmarks seen from above, T003, T004, T020, T021, T027, T031, and surveyed palms clear of other crowns and masses)",
+  "crown_talipot": "visible cells of the 4 talipot crowns (T007, T008, T009, T019)",
+  "crown_mangrove": "canopy over water inside the island outline (the fringe), 1.5 m blocks, k = 3",
+  "shrub": "island vegetation topping out at 0.3 to 1.5 m, 1.5 m blocks, k = 3",
+  "canopy_puff": "island canopy over 4 m outside the landmark crowns (masses and unassigned canopy), 1.5 m blocks, k = 4",
+  "understorey": "island vegetation topping out at 1.5 to 4 m, 1.5 m blocks, k = 3",
+  "trunk_bark": "chosen: not visible from above",
+  "trunk_palm": "chosen: not visible from above",
+  "trunk_mangrove": "chosen: not visible from above",
+  "rainbow_trunk": "chosen: not visible from above",
+  "osprey_pole": "chosen: not visible from above",
+  "nest": "chosen: not visible from above",
+  "sky_top": "chosen: not visible from above",
+  "sky_horizon": "chosen: not visible from above",
+  "fog": "chosen: not visible from above"
+ },
+ "notes": [
+  "Sampled from the October 2025 drone orthomosaic, averaged to 0.125 m cells over the site frame; art reference only, never shipped as a texture.",
+  "Pixels were labelled with the lidar rasters on the same grid: water and open water masks, ground and vegetation height (top of vegetation above ground), the island land polygon, the island crop outline and the landmark crown polygons.",
+  "Colours were summarised in CIELAB: per-channel medians; crowns and clumps drop their darkest 10 % of cells first (canopy gaps); the rest of the self shadow is kept, because a low-poly crown has no leaf-scale shadow of its own.",
+  "Variants: crown_broadleaf and crown_palm are k-means groups of per-plant medians (tree-to-tree differences); shrub, understorey, canopy_puff and crown_mangrove are k-means groups of 1.5 m block medians; water is a k = 3 k-means of open water (deep, tea-coloured shelf, sandy margin). Variants are ordered dark to light and variant_weights gives the share of each.",
+  "Shrub, understorey and canopy_puff split island vegetation by its top height: 0.3 to 1.5 m, 1.5 to 4 m, over 4 m, outside the landmark crowns.",
+  "Toon adjustment: L' = 100 (L/100)^0.8 lifts shadows (L 20 to 28, 50 to 57, 80 to 84); chroma x 1.18; CIELAB hue angle unchanged; chroma trimmed only where needed to stay inside sRGB.",
+  "From above, the lake is dark and tea-coloured: deep water is a dark, almost neutral slate and the shelf where the bed shows is tea brown. These hues are honest; any sky reflection is for the water shader to add.",
+  "landmark_tints: toon-adjusted median of the cells of each crown polygon that the drone could see (cells no other crown claims, or where the canopy is taller than any other claimant), vegetation over 1 m, darkest 10 % dropped. T036 is the osprey pole: its tint is the empty nest platform seen from above.",
+  "Landmark kinds come from data/placements.json (the plant survey where a point marks the stem, else the lab's own identification or the tree table). A landmark the survey turned into a palm is sampled over its palm crown from placements.json, not over the lidar crown polygon, which can hold neighbouring broadleaf canopy; a palm whose crown is hidden under broadleaf canopy (T016) takes the median of the palm landmarks seen from above.",
+  "Chosen, not sampled: water_foam, trunks, rainbow eucalyptus bands (lime green, teal, blue, purple, orange, maroon) for every rainbow_eucalyptus landmark (T001, T005, T006), osprey_pole, nest and the sky colours."
+ ]
+}

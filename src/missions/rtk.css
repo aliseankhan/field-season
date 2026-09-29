@@ -1,0 +1,374 @@
+/* The RTK plant survey (src/missions/rtk.js): the fix card docked on the right so the
+   player, the pole and any ibis stay in view, the phone on the pole, the mosquito, the
+   log card with its leaf sketch, the end card and the notebook page. */
+
+/* ---------------------------------------------------------------- the fix card */
+
+.ui-minigame.rtk-dock {
+  justify-self: end;
+  align-self: center;
+  margin-right: max(1.5em, 5vw);
+  min-width: 0;
+  width: 19em;
+  padding: 1.6em 1.2em 1.1em;
+}
+.ui-minigame.rtk-dock .ui-card-sub { font-size: 0.92em; margin: 0.45em 0 0.7em; }
+.ui-minigame.rtk-dock .ui-minigame-foot { font-size: 0.8em; }
+.ui-minigame-stage.rtk-stage {
+  min-width: 0;
+  width: 16.5em;
+  height: 20em;
+  background: radial-gradient(ellipse at 50% 40%, #fdf6e2, #f3e6c4);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.rtk-phone {
+  position: relative;
+  box-sizing: border-box;
+  width: 11.2em;
+  height: 18.4em;
+  padding: 0.75em 0.6em;
+  border-radius: 1.6em;
+  background: #8fe0bf;
+  border: 0.16em solid #4fae8a;
+  box-shadow: 0 0.22em 0 #4fae8a, 0 0.6em 1.2em rgba(40, 80, 60, 0.25);
+}
+.rtk-phone.is-shake { animation: rtk-shake 0.4s; }
+@keyframes rtk-shake {
+  0%, 100% { transform: translateX(0) rotate(0); }
+  20% { transform: translateX(-0.35em) rotate(-3deg); }
+  45% { transform: translateX(0.3em) rotate(2.5deg); }
+  70% { transform: translateX(-0.18em) rotate(-1.2deg); }
+}
+.rtk-screen {
+  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.5em 0.5em 0.6em;
+  border-radius: 1.05em;
+  background: #f4fbff;
+  color: #2f4a5a;
+  overflow: hidden;
+}
+.rtk-app {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.72em;
+  font-weight: 800;
+  color: #4d6d80;
+}
+.rtk-app b { color: #2f7a5a; }
+.rtk-sky { width: 7.4em; height: 7.4em; }
+.rtk-ring { fill: none; stroke: #cfe3ee; stroke-width: 1.4; }
+.rtk-sat { fill: #d6dde2; transition: fill 0.25s; }
+.rtk-sat.is-on { fill: #3fb8c4; }
+.rtk-you { fill: #ff6f61; stroke: #fff; stroke-width: 1.5; }
+.rtk-chip {
+  padding: 0.14em 0.9em 0.2em;
+  border-radius: 999px;
+  font: 900 1.25em/1.2 var(--font-display);
+  letter-spacing: 0.06em;
+  color: #fff;
+  transition: background 0.2s;
+}
+.rtk-chip.is-single { background: #ff8a5c; }
+.rtk-chip.is-float { background: #f5b82e; }
+.rtk-chip.is-fix { background: #4fae3c; animation: ui-pop 0.35s ease-out; }
+.rtk-steps {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1.6fr 0.6fr;
+  gap: 0.25em;
+}
+.rtk-steps div {
+  position: relative;
+  height: 1.25em;
+  border-radius: 999px;
+  background: #e3ecf1;
+  overflow: hidden;
+}
+.rtk-steps i {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(0);
+}
+.rtk-steps div:nth-child(1) i { background: #ff8a5c; }
+.rtk-steps div:nth-child(2) i { background: #f5b82e; }
+.rtk-steps div:nth-child(3) i { background: #4fae3c; }
+.rtk-steps span {
+  position: relative;
+  display: block;
+  font-size: 0.56em;
+  line-height: 2.2em;
+  font-weight: 900;
+  color: #2f4a5a;
+  text-align: center;
+  letter-spacing: 0.03em;
+}
+.rtk-acc { font-size: 0.95em; font-weight: 800; color: #4d6d80; }
+.rtk-acc b { font-size: 1.25em; color: #2f4a5a; }
+.rtk-acc.is-fix b { color: #3f9a2e; }
+.rtk-plant { margin-top: auto; font-size: 0.72em; font-weight: 800; color: #6b8a5a; }
+.rtk-plant .ui-icon { color: #4fae3c; }
+
+.rtk-say {
+  position: absolute;
+  left: 50%;
+  top: 0.7em;
+  transform: translateX(-50%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  z-index: 3;
+}
+.rtk-say.is-on { opacity: 1; }
+.rtk-say span {
+  display: inline-block;
+  padding: 0.2em 0.8em 0.26em;
+  border-radius: 999px;
+  background: #fff;
+  font-weight: 900;
+  white-space: nowrap;
+  box-shadow: 0 0.16em 0 rgba(120, 90, 40, 0.18);
+  animation: ui-pop 0.3s ease-out;
+}
+.rtk-say.is-good span { background: var(--leaf); color: #fff; }
+.rtk-say.is-miss span { background: var(--coral); color: #fff; }
+
+/* the mosquito */
+.rtk-moz {
+  position: absolute;
+  left: -25px;
+  top: -25px;
+  width: 50px;
+  height: 50px;
+  pointer-events: none;
+  z-index: 2;
+  will-change: transform;
+}
+.rtk-moz.is-away { display: none; }
+.rtk-wing { fill: rgba(220, 240, 255, 0.75); stroke: #9ab4c8; stroke-width: 0.8; transform-box: fill-box; transform-origin: 50% 90%; }
+.rtk-moz.is-flying .rtk-wing { animation: rtk-flap 0.05s linear infinite alternate; }
+.rtk-moz.is-landed .rtk-wings { transform: rotate(8deg) scaleY(0.8); transform-origin: 0 -2px; }
+.rtk-moz.is-landed svg { animation: rtk-sit 0.95s linear forwards; }
+.rtk-moz.is-landed::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 3px solid #ffcf3f;
+  animation: rtk-ring 0.95s ease-in forwards;
+}
+.rtk-moz.is-swatted svg { animation: rtk-spin 0.9s ease-out forwards; }
+.rtk-moz.is-leaving { opacity: 0; transition: opacity 0.4s; }
+@keyframes rtk-flap { from { transform: scaleY(1); } to { transform: scaleY(0.35); } }
+@keyframes rtk-sit { 0% { transform: translateY(-2px); } 12% { transform: translateY(1px); } 100% { transform: translateY(0); } }
+@keyframes rtk-ring { from { transform: scale(1.6); opacity: 0.9; } to { transform: scale(0.7); opacity: 0.3; } }
+@keyframes rtk-spin { to { transform: rotate(540deg) scale(0.4); opacity: 0; } }
+
+.rtk-swat {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0;
+}
+.rtk-swat span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  padding: 0.3em 0.7em;
+  font: 900 1.2em/1 var(--font-display);
+  color: #fff;
+  background: #ff6f61;
+  clip-path: polygon(50% 0, 62% 26%, 92% 12%, 76% 42%, 100% 55%, 72% 64%, 84% 96%, 54% 76%, 34% 100%, 30% 70%, 0 78%, 20% 52%, 2% 30%, 32% 30%, 26% 4%);
+  padding: 1.1em 1.3em;
+}
+.rtk-swat.is-on { animation: rtk-burst 0.6s ease-out forwards; }
+.rtk-swat.is-miss span { background: #b8c4cc; font-size: 0.9em; }
+.rtk-swat.is-miss span::before { content: ''; }
+@keyframes rtk-burst {
+  0% { opacity: 0; transform: scale(0.4) rotate(-10deg); }
+  25% { opacity: 1; transform: scale(1.15) rotate(4deg); }
+  100% { opacity: 0; transform: scale(1) rotate(0); }
+}
+
+/* ---------------------------------------------------------------- the log card */
+
+/* docked on the right like the fix card, so you and the plant stay in view on the left */
+.ui-minigame.rtk-log-card {
+  justify-self: end;
+  align-self: center;
+  margin-right: max(1.5em, 4vw);
+  width: 31em;
+  min-width: 0;
+  max-width: calc(100vw - 2em);
+}
+.ui-minigame-stage.rtk-log-stage {
+  display: block;
+  min-width: 0;
+  min-height: 0;
+  padding: 1em;
+  text-align: left;
+  background: #fbf2dc;
+}
+.rtk-log-clues { display: flex; gap: 1em; align-items: center; }
+.rtk-log-leaf {
+  flex: none;
+  width: 9.5em;
+  margin: 0;
+  padding: 0.5em 0.5em 0.35em;
+  border-radius: 0.8em;
+  background: #fffdf5;
+  border: 0.12em solid var(--paper-edge);
+  transform: rotate(-2deg);
+  box-shadow: 0 0.2em 0.5em rgba(80, 60, 30, 0.12);
+  text-align: center;
+}
+.rtk-log-leaf svg { display: block; width: 100%; height: auto; }
+.rtk-log-leaf figcaption {
+  display: inline-block;
+  margin-top: 0.2em;
+  padding: 0.05em 0.7em 0.12em;
+  border-radius: 999px;
+  background: #e5f3d6;
+  color: #3f7a34;
+  font-weight: 800;
+  font-size: 0.85em;
+}
+.rtk-log-hint { flex: 1; }
+.rtk-fam {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.4em;
+  padding: 0.45em 0.8em;
+  border-radius: 0.8em;
+  background: #eef7e4;
+  border: 0.1em dashed #a9d38a;
+}
+.rtk-fam small { width: 100%; font-weight: 800; color: #6b8a5a; font-size: 0.78em; text-transform: uppercase; letter-spacing: 0.08em; }
+.rtk-fam b { font-style: italic; color: #2b6a3f; font-size: 1.15em; }
+.rtk-fam span { color: #4f7a44; font-weight: 700; }
+.rtk-log-hint p { margin: 0.6em 0.2em 0; color: var(--ink); font-weight: 700; line-height: 1.35; }
+.rtk-log-picks { display: grid; grid-template-columns: 1fr; gap: 0.45em; margin-top: 0.9em; }
+/* each name a row: its number, its leaf, the name and its family in plain words */
+.rtk-pick {
+  position: relative;
+  width: 100%;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.3em 0.9em 0.35em 0.6em;
+  border-radius: 0.9em;
+  font-size: 0.95em;
+  line-height: 1.2;
+  text-align: left;
+}
+.rtk-pick .ui-choice-num { position: static; flex: none; background: #fffdf5; box-shadow: 0 0.08em 0 var(--paper-edge); }
+.rtk-pick-leaf { flex: none; }
+.rtk-pick span { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 0.6em; min-width: 0; }
+.rtk-pick small { font-weight: 700; font-size: 0.85em; color: #5f8a4a; }
+.rtk-pick.is-right { background: #dff3cf !important; box-shadow: 0 0.22em 0 #7cc05a, 0 0.45em 0.9em rgba(40, 80, 50, 0.18); }
+.rtk-pick.is-wrong { background: #ffe0d2 !important; box-shadow: 0 0.22em 0 #f0a07a; }
+.rtk-pick.is-dim { opacity: 0.45; }
+.rtk-pick:disabled { cursor: default; transform: none; }
+.rtk-log-after:empty { display: none; }
+.rtk-log-after { display: flex; align-items: center; gap: 0.8em; margin-top: 0.9em; animation: ui-pop 0.3s ease-out; }
+.rtk-verdict { flex: 1; margin: 0; font-weight: 700; line-height: 1.35; font-size: 0.95em; }
+.rtk-verdict .ui-icon { color: var(--leaf-deep); }
+.rtk-verdict.is-kind .ui-icon { color: var(--coral); }
+
+/* ---------------------------------------------------------------- the end card */
+
+.ui-minigame.rtk-done-card { width: 26em; min-width: 0; }
+.ui-minigame-stage.rtk-done-stage { display: block; min-width: 0; padding: 0.8em 1em 1em; cursor: pointer; }
+.rtk-stars { display: flex; justify-content: center; gap: 0.3em; font-size: 2.6em; color: #e8dcc0; }
+.rtk-stars span { display: inline-block; animation: ui-pop 0.45s ease-out backwards; }
+.rtk-stars span.is-on { color: #f5c542; filter: drop-shadow(0 0.06em 0 #c98a12); }
+.rtk-stars .ui-icon { width: 1em; height: 1em; }
+.rtk-done-why { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.4em; margin: 0.4em 0 0.7em; }
+.rtk-done-why span {
+  padding: 0.12em 0.7em 0.18em;
+  border-radius: 999px;
+  background: #efe6d2;
+  color: var(--ink-soft);
+  font-weight: 800;
+  font-size: 0.85em;
+}
+.rtk-done-why span.is-on { background: #e1f3d2; color: #3f7a34; }
+.rtk-done-list { display: grid; gap: 0.25em; }
+.rtk-done-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.2em 0.5em;
+  border-radius: 0.7em;
+  background: rgba(255, 255, 255, 0.6);
+  text-align: left;
+}
+.rtk-done-row span { flex: 1; display: flex; flex-direction: column; line-height: 1.15; }
+.rtk-done-row i { font-size: 0.8em; color: var(--ink-soft); }
+.rtk-done-row em { font-style: normal; font-weight: 800; font-size: 0.8em; color: var(--ink-soft); }
+.rtk-done-row em.is-right { color: #3f9a2e; }
+.rtk-done-pts { margin-top: 0.7em; font: 900 1.3em/1.2 var(--font-display); color: #c98a12; }
+.rtk-mini { flex: none; }
+
+/* ---------------------------------------------------------------- the notebook page */
+
+/* two pages with the spine in the 3.4em gap (as the kit's header above it) */
+.rtk-nb { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.2em 3.4em; min-height: 0; flex: 1; }
+.rtk-nb-col { display: flex; flex-direction: column; min-height: 0; }
+/* a long list scrolls; its last line fades out at the foot of the page rather than being cut
+   in half (a short list never reaches the fade) */
+.rtk-nb-list { display: flex; flex-direction: column; gap: 0.1em; margin-top: 0.6em; overflow: auto; flex: 1 1 0; min-height: 6em; padding: 0 0.3em 1.4em 0;
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 2.2em), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 2.2em), transparent); }
+.rtk-nb-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.25em 0.5em;
+  border-bottom: 0.08em dashed rgba(133, 115, 90, 0.3);
+}
+.rtk-nb-row > div { flex: 1; line-height: 1.2; }
+.rtk-nb-row i { color: var(--ink-soft); font-size: 0.85em; }
+.rtk-nb-row small { display: block; color: #5f8a4a; font-weight: 700; font-size: 0.8em; }
+.rtk-form {
+  padding: 0.05em 0.6em 0.12em;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 0.75em;
+  background: #e5f3d6;
+  color: #3f7a34;
+}
+.rtk-form.is-palm { background: #fff0c9; color: #9a6a12; }
+.rtk-form.is-shrub { background: #dff0f7; color: #2f6f8a; }
+.rtk-form.is-herb { background: #fde2ec; color: #a2446a; }
+.rtk-tick { width: 1.2em; color: #4fae3c; }
+.rtk-tick.is-off { visibility: hidden; }
+.rtk-nb-map { width: 100%; flex: 1; min-height: 13em; border-radius: 0.8em; }
+.rtk-nb-key { display: flex; gap: 1em; margin-top: 0.4em; font-size: 0.85em; font-weight: 700; color: var(--ink-soft); }
+.rtk-nb-key i { display: inline-block; width: 0.8em; height: 0.8em; margin-right: 0.35em; border-radius: 50%; vertical-align: -0.05em; }
+.rtk-nb-key i.is-rec { background: #2f8f3a; border: 0.12em solid #fff; }
+.rtk-nb-key i.is-today { border: 0.18em solid #f2b829; }
+
+body.reduce-motion .rtk-phone.is-shake,
+body.reduce-motion .rtk-moz.is-flying .rtk-wing,
+body.reduce-motion .rtk-swat.is-on { animation: none; }
+body.reduce-motion .rtk-swat.is-on { opacity: 1; }
+
+@media (max-height: 700px) {
+  .ui-minigame-stage.rtk-stage { height: 17em; }
+  .rtk-phone { height: 15.6em; }
+  .rtk-sky { width: 5.6em; height: 5.6em; }
+}

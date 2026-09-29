@@ -1,0 +1,11 @@
+# local scratch, builds and check images
+work/
+dist/
+check/
+
+# a server's real deployment paths (see tools/package.py)
+tools/deploy_site.json
+
+__pycache__/
+*.pyc
+.DS_Store

@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stroud Lab: Field Season, model gallery</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe8f4; font-family: ui-rounded, system-ui, sans-serif; }
+  canvas { display: block; }
+  .tag { font-size: 11px; line-height: 1.2; color: #24321e; background: rgba(255, 255, 255, 0.85); padding: 2px 7px; border-radius: 9px; white-space: nowrap; text-align: center; }
+  .tag small { display: block; color: #5d6b55; font-size: 9px; }
+  #help { position: absolute; left: 10px; bottom: 10px; font-size: 12px; color: #24321e; background: rgba(255, 255, 255, 0.8); padding: 6px 10px; border-radius: 10px; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="help">Drag to orbit, wheel to zoom. Rows: <a href="?row=A">landmarks</a> · <a href="?row=B">plants</a> · <a href="?row=C">mounds and filler</a> · <a href="?row=D">perches</a> · <a href="?row=E">props</a> · <a href="?">all</a></div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import {
+  MeshBuilder, makeUnitGeometry, lin, tint, moundPuff, blob,
+  buildBroadleaf, buildEucalyptus, buildPalm, buildTalipot, buildOspreyPole, buildBamboo,
+  buildStub, buildLimb, buildPerchFan, buildPerchFrond,
+} from './src/world/models.js';
+import { createVegMaterials } from './src/world/vegetation.js';
+import { setVegFrame, applyVegShader, makeToonGradient, TOON_WOOD, TOON_LEAF } from './src/world/wind.js';
+import { PIECES } from './src/world/props.js';
+
+const Q = new URLSearchParams(location.search);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+const labels = new CSS2DRenderer();
+labels.setSize(innerWidth, innerHeight);
+Object.assign(labels.domElement.style, { position: 'absolute', top: '0', left: '0', pointerEvents: 'none' });
+document.body.appendChild(labels.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#d9ecf6');
+scene.fog = new THREE.Fog('#e4efe2', 160, 420);
+const sun = new THREE.DirectionalLight('#ffe8c2', 2.9);
+sun.position.set(-40, 70, 50);
+sun.target.position.set(0, 0, 20);
+sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096);
+sun.shadow.bias = -0.0003;
+sun.shadow.normalBias = 0.035;
+Object.assign(sun.shadow.camera, { left: -90, right: 90, top: 90, bottom: -90, near: 10, far: 260 });
+scene.add(sun, sun.target, new THREE.HemisphereLight('#b8c2f4', '#a8c67c', 1.15));
+
+const grass = new THREE.Mesh(new THREE.CircleGeometry(110, 48).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#8fcf5f' }));
+grass.receiveShadow = true;
+scene.add(grass);
+
+const mats = createVegMaterials();
+const propMat = applyVegShader(new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: makeToonGradient(TOON_WOOD) }), { flutter: 0.4 });
+const wood = new MeshBuilder();
+const leaf = new MeshBuilder();
+const props = new MeshBuilder();
+props.sway = 0;
+const rows = { A: 0, B: 26, C: 44, D: 56, E: 66 };
+const rowX = {};
+
+function label(text, sub, x, y, z) {
+  const d = document.createElement('div');
+  d.className = 'tag';
+  d.innerHTML = sub ? `${text}<small>${sub}</small>` : text;
+  const o = new CSS2DObject(d);
+  o.position.set(x, y, z);
+  scene.add(o);
+}
+
+function unit(key, x, y, z, sx, sy, sz, col = [1, 1, 1], rot = 0.4) {
+  const { geometry, mat } = makeUnitGeometry(key);
+  const m = new THREE.InstancedMesh(geometry, mats[mat], 1);
+  m.setMatrixAt(0, new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, rot, 0)), new THREE.Vector3(sx, sy, sz)));
+  m.setColorAt(0, new THREE.Color(col[0], col[1], col[2]));
+  m.castShadow = m.receiveShadow = true;
+  m.computeBoundingSphere();
+  scene.add(m);
+}
+
+// Lay models out left to right along a row; each entry gives its footprint width.
+function row(name, entries) {
+  if (Q.get('row') && Q.get('row') !== name) return;
+  const z = rows[name];
+  const total = entries.reduce((s, e) => s + e.w, 0);
+  let x = -total / 2;
+  for (const e of entries) {
+    const cx = x + e.w / 2;
+    e.make(cx, z);
+    label(e.label, e.sub, cx, (e.h ?? 3) + 0.8, z);
+    x += e.w;
+  }
+  rowX[name] = total;
+}
+
+const C = {
+  bark: lin('#8a6b50'), palmBark: lin('#b8a58c'), palmRing: lin('#98836a'), mang: lin('#8a5a3c'),
+  talBark: lin('#b59a78'), talRing: lin('#8e7457'), broad: lin('#74c25a'), broad2: lin('#86cc5e'), euc: lin('#a3d36a'),
+  palm: lin('#9ccf4f'), palmRim: lin('#c4e58a'), talLeaf: lin('#86c96a'), talRim: lin('#b9e48c'), dead: lin('#c9a46a'),
+  nipa: lin('#8fcf5a'), mangLeaf: lin('#4dae6a'), shrub: lin('#4fae57'), hedge: lin('#63bd5e'), under: lin('#69c262'),
+  fern: lin('#6cbf5a'), pole: lin('#b49a7a'), nest: lin('#8f6f47'),
+  rainbow: ['#a6e05a', '#34c4b4', '#9b6fd8', '#ff9f45', '#b2475e'].map(lin),
+};
+const never = () => false;
+
+row('A', [
+  { label: 'broadleaf', sub: 'plump puffs', w: 13, h: 12.5, make: (x, z) => buildBroadleaf(wood, leaf, {
+    owner: 'g1', x, y: 0, z, yBottom: -0.3, stems: [{ x, z, r: 0.2 }], height: 12, crownBase: 3, cx: x, cz: z, rx: 4.3, rz: 4.1, leaf: C.broad, bark: C.bark, seed: 11, walkable: never }) },
+  { label: 'broadleaf', sub: 'offset crown, low limbs', w: 15, h: 10.5, make: (x, z) => buildBroadleaf(wood, leaf, {
+    owner: 'g2', x: x + 1.5, y: 0, z, yBottom: -0.3, stems: [{ x: x + 1.5, z, r: 0.25 }], height: 10, crownBase: 0.5, cx: x - 0.5, cz: z, rx: 5.6, rz: 5.2, leaf: C.broad2, bark: C.bark, seed: 12, walkable: never }) },
+  { label: 'broadleaf', sub: 'three stems', w: 13, h: 10.5, make: (x, z) => buildBroadleaf(wood, leaf, {
+    owner: 'g3', x, y: 0, z, yBottom: -0.3, stems: [{ x, z, r: 0.1 }, { x: x + 0.4, z: z - 0.3, r: 0.09 }, { x: x - 0.3, z: z - 0.35, r: 0.1 }], height: 9.8, crownBase: 0.5, cx: x, cz: z + 0.5, rx: 4.6, rz: 5.4, leaf: C.broad, bark: C.bark, seed: 13, walkable: never }) },
+  { label: 'rainbow eucalyptus', sub: 'candy-striped bark', w: 14, h: 19.5, make: (x, z) => buildEucalyptus(wood, leaf, {
+    owner: 'g4', x, y: 0, z, yBottom: -0.3, stems: [{ x, z, r: 0.195 }], height: 18.9, crownBase: 4.75, cx: x + 0.6, cz: z + 1, rx: 5.4, rz: 6.2, leaf: C.euc, bands: C.rainbow, seed: 14 }) },
+  { label: 'talipot', sub: 'Corypha umbraculifera', w: 16, h: 9.8, make: (x, z) => buildTalipot(wood, leaf, {
+    owner: 'g5', x, y: 0, z, yBottom: -0.3, r: 0.45, height: 9.3, crownBase: 0.75, cx: x, cz: z, rx: 5.4, rz: 5.3, bark: C.talBark, ring: C.talRing, leaf: C.talLeaf, rim: C.talRim, seed: 15, walkable: never }) },
+  { label: 'fan palm', sub: 'Sabal, jaunty trunk', w: 10, h: 13.8, make: (x, z) => buildPalm(wood, leaf, {
+    owner: 'g6', x, y: 0, z, yBottom: -0.3, r: 0.22, height: 13.4, crownR: 3.5, frondLo: 9, style: 'fan', sBend: [0.45, 0.1], bend: [0.14, 0.03], bark: C.palmBark, ringColor: C.palmRing, leaf: C.palm, rim: C.palmRim, dead: C.dead, seed: 16 }) },
+  { label: 'feather palm', sub: 'Attalea butyracea', w: 9, h: 9.2, make: (x, z) => buildPalm(wood, leaf, {
+    owner: 'g6b', x, y: 0, z, yBottom: -0.3, r: 0.12, height: 8.7, crownR: 3.0, frondLo: 5.1, style: 'feather', bend: [0.2, 0.05], bark: C.palmBark, ringColor: C.palmRing, leaf: C.palm, dead: C.dead, seed: 18 }) },
+  { label: 'osprey nest pole', w: 8, h: 10.6, make: (x, z) => buildOspreyPole(wood, leaf, {
+    owner: 'g7', x, y: 0, z, yBottom: -0.3, r: 0.153, height: 9.54, platformY: 9.01, cx: x + 0.2, cz: z, nestR: 0.98, pole: C.pole, nest: C.nest, birdScale: 1.4, seed: 17 }) },
+]);
+
+row('B', [
+  ...['crownR', 'crownT'].map((k, i) => ({ label: `survey tree ${'RT'[i]}`, sub: 'trunk and crown', w: 7, h: 9, make: (x, z) => {
+    unit('trunk', x, -0.3, z, 0.11, 0.55 * 9 + 0.3, 0.11, C.bark);
+    unit(k, x, 2.7, z, 6, 6.3, 6, i ? C.broad2 : C.broad, i);
+  } })),
+  { label: 'mangrove', sub: 'survey plant, arched roots', w: 7, h: 6.6, make: (x, z) => {
+    unit('trunk', x, -0.3, z, 0.1, 3.4, 0.1, C.mang);
+    unit('arches1', x, 0, z, 1.25, 1.2, 1.25, C.mang);
+    unit('crownF1', x, 1.6, z, 5.2, 4.4, 5.2, C.mangLeaf);
+  } },
+  { label: 'coconut palm', w: 8, h: 10.5, make: (x, z) => buildPalm(wood, leaf, {
+    owner: 'p1', x, y: 0, z, yBottom: -0.3, r: 0.15, height: 10, crownR: 3.5, frondLo: 5.8, style: 'feather', bend: [1.0, 0.4], nuts: true, bark: C.palmBark, ringColor: C.palmRing, leaf: C.palm, dead: C.dead, seed: 21 }) },
+  { label: 'royal palm', w: 7, h: 9.5, make: (x, z) => buildPalm(wood, leaf, {
+    owner: 'p2', x, y: 0, z, yBottom: -0.3, r: 0.25, height: 9, crownR: 3, frondLo: 5.4, style: 'royal', bark: lin('#c9c2b6'), leaf: C.palm, seed: 22 }) },
+  { label: 'thatch palm', sub: 'fan', w: 5, h: 5.6, make: (x, z) => buildPalm(wood, leaf, {
+    owner: 'p3', x, y: 0, z, yBottom: -0.3, r: 0.06, height: 5.3, crownR: 1.25, frondLo: 3.8, style: 'fan', sBend: [0.2, 0], bark: C.palmBark, ringColor: C.palmRing, leaf: C.palm, rim: C.palmRim, dead: C.dead, seed: 23 }) },
+  { label: 'nipa palm', w: 7, h: 4.6, make: (x, z) => buildPalm(wood, leaf, {
+    owner: 'p4', x, y: 0, z, yBottom: -0.3, r: 0.15, height: 5, crownR: 2.75, frondLo: 1.7, style: 'nipa', bark: C.palmBark, leaf: C.nipa, seed: 24 }) },
+  { label: 'young palm', w: 3, h: 1.6, make: (x, z) => buildPalm(wood, leaf, {
+    owner: 'p5', x, y: 0, z, yBottom: -0.3, r: 0.04, height: 1.2, crownR: 0.75, frondLo: 0.3, style: 'small', bark: C.palmBark, leaf: C.palm, seed: 25 }) },
+  { label: 'bamboo', sub: 'Bambusa dolichoclada', w: 5, h: 6.6, make: (x, z) => buildBamboo(wood, leaf, {
+    owner: 'p6', x, y: 0, z, yBottom: -0.3, height: 6.22, width: 4, extra: [], culm: lin('#b3bb4d'), leaf: C.under, seed: 26 }) },
+  { label: 'crinum lily', sub: 'herb', w: 3, h: 1.5, make: (x, z) => unit('herb', x, 0, z, 1.5, 1.2, 1.5) },
+]);
+
+// a small mound of four puffs sharing one envelope, as the vegetation draws them
+function mound(x, z, list, col) {
+  const env = (p) => {
+    let gx = 0, gz = 0;
+    for (const q of list) {
+      const d = Math.hypot(p[0] - (x + q[0]), p[2] - (z + q[1])) / q[2];
+      if (d < 1) { const k = q[3] * d / Math.sqrt(1 - d * d + 1e-3) / q[2]; gx += k * (p[0] - x - q[0]) / (d * q[2] + 1e-3); gz += k * (p[2] - z - q[1]) / (d * q[2] + 1e-3); }
+    }
+    const l = Math.hypot(gx, 1, gz);
+    return [gx / l * 0.6, 1 / l, gz / l * 0.6];
+  };
+  const top = Math.max(...list.map((q) => q[3]));
+  list.forEach((q, i) => moundPuff(leaf, { x: x + q[0], y0: 0, z: z + q[1], R: q[2], H: q[3], color: col, seed: 40 + i, env, massTop: top, jit: 0.02, detail: q[2] > 1.4 ? 2 : 1 }));
+}
+
+row('C', [
+  { label: 'lawn mound', sub: 'merged bushes', w: 9, h: 2.6, make: (x, z) => mound(x, z, [[0, 0, 2.1, 2.3], [1.9, 0.6, 1.4, 1.6], [-1.8, 0.4, 1.3, 1.4], [0.5, -1.4, 1.2, 1.3]], C.shrub) },
+  { label: 'thicket mound', sub: 'big and soft', w: 11, h: 3.6, make: (x, z) => mound(x, z, [[0, 0, 2.9, 3.3], [2.8, 0.8, 2.2, 2.4], [-2.6, 0.9, 2.1, 2.2], [0.2, -2.3, 1.8, 1.9], [-3.8, -0.8, 1.0, 1.1]], tint(C.shrub, 0.92)) },
+  { label: 'single bush', w: 3.5, h: 1.8, make: (x, z) => moundPuff(leaf, { x, y0: 0, z, R: 0.85, H: 1.3, color: C.shrub, seed: 7, jit: 0.02 }) },
+  { label: 'edge hedge', w: 5, h: 1.4, make: (x, z) => mound(x, z, [[-1.2, 0, 0.66, 0.9], [-0.4, 0.05, 0.68, 0.95], [0.4, -0.03, 0.64, 0.88], [1.2, 0.02, 0.67, 0.93]], C.hedge) },
+  { label: 'understorey tree', sub: 'fern ring at its feet', w: 4, h: 4.4, make: (x, z) => {
+    unit('trunk', x, -0.25, z, 0.1, 1.55 + 0.35 * 2.4 + 0.25, 0.1, C.bark);
+    unit('crownT', x, 1.55, z, 2.35, 2.45, 2.35, C.under);
+    for (let k = 0; k < 4; k++) { const a = k * 1.57 + 0.3; unit('fern', x + Math.cos(a) * 0.55, 0, z + Math.sin(a) * 0.55, 0.52, 0.55, 0.52, C.fern, a); }
+  } },
+  { label: 'canopy tree', sub: 'leaning trunk', w: 5, h: 7.6, make: (x, z) => {
+    unit('trunk', x, -0.25, z, 0.14, 4.2, 0.14, C.bark);
+    unit('crownR', x, 2.8, z, 4.4, 4.4, 4.4, C.broad);
+  } },
+  ...['crownF1', 'crownF2'].map((k, i) => ({ label: `mangrove canopy ${i + 1}`, sub: 'arched prop roots', w: 6, h: 5.8, make: (x, z) => {
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(2.4, 24).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#35b0ae' }));
+    pool.position.set(x, 0.02, z);
+    scene.add(pool);
+    unit('trunk', x, -0.4, z, 0.12, 3.0, 0.12, C.mang);
+    unit(i ? 'arches1' : 'arches0', x, 0, z, 1.2, 1.25, 1.2, C.mang);
+    unit(k, x, 1.5, z, 4.8, 3.9, 4.8, tint(C.mangLeaf, 1 + i * 0.06));
+  } })),
+]);
+
+row('D', [
+  { label: 'stub branch', sub: 'rising, for a lizard', w: 3, h: 2.2, make: (x, z) => {
+    unit('trunk', x, -0.3, z, 0.12, 3, 0.12, C.bark);
+    buildStub(wood, { stem: { x, z, r: 0.12 }, p: [x + 0.35, 1.3, z + 0.1], rb: 0.055, bark: C.bark, seed: 3 });
+    buildStub(wood, { stem: { x, z, r: 0.12 }, p: [x - 0.25, 0.9, z + 0.25], rb: 0.05, bark: C.bark, seed: 4 });
+  } },
+  { label: 'perch limb', sub: 'sweeping, leafy tip', w: 5, h: 3.4, make: (x, z) => {
+    unit('trunk', x - 1.5, -0.3, z, 0.16, 3.8, 0.16, C.bark);
+    buildLimb(wood, leaf, { stem: { x: x - 1.5, z, r: 0.16 }, p: [x + 1.0, 1.4, z + 0.3], rb: 0.06, bark: C.bark, leafCol: C.broad, seed: 5, yMax: 3.2 });
+  } },
+  { label: 'perch fan', w: 4, h: 3, make: (x, z) => buildPerchFan(leaf, { T: [x - 1, 3, z], p: [x + 0.5, 1.7, z], radius: 1.1, color: C.palm, rim: C.palmRim, seed: 6 }) },
+  { label: 'perch frond', w: 4, h: 3, make: (x, z) => buildPerchFrond(leaf, { T: [x - 1, 3, z], p: [x + 0.6, 1.8, z], color: C.palm, seed: 7 }) },
+  { label: 'leaf cluster', w: 2.5, h: 1.2, make: (x, z) => unit('leaf3', x, 0.6, z, 0.4, 0.4, 0.4, C.broad) },
+  { label: 'fern', w: 2.5, h: 1, make: (x, z) => unit('fern', x, 0, z, 0.7, 0.75, 0.7, C.fern) },
+  { label: 'fallen log', w: 4, h: 0.8, make: (x, z) => unit('log', x, 0.16, z, 2.5, 0.16, 0.16, [1, 1, 1], 0.3) },
+]);
+
+const flat = () => 0;
+row('E', [
+  { label: 'signpost', sub: 'Lizard Island', w: 4, h: 1.8, make: (x, z) => {
+    const s = PIECES.signpost(props, { x, z, face: 0 }, flat);
+    const tex = PIECES.signTexture();
+    const bd = s.board;
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(bd.w, bd.h), new THREE.MeshToonMaterial({ map: tex, gradientMap: makeToonGradient(TOON_WOOD) }));
+    face.position.set(bd.x, bd.y, bd.z);
+    face.rotation.y = bd.face;
+    scene.add(face);
+  } },
+  { label: 'field table', sub: 'clipboard and jars', w: 3, h: 1.2, make: (x, z) => PIECES.fieldTable(props, { x, z, rot: 0.5 }, flat) },
+  { label: 'crate', w: 2, h: 1.0, make: (x, z) => PIECES.crate(props, { x, z }, flat) },
+  { label: 'bucket', w: 1.5, h: 0.7, make: (x, z) => PIECES.bucket(props, { x, z }, flat) },
+  { label: 'flag', w: 2, h: 2.4, make: (x, z) => { props.sway = 0; PIECES.flag(props, { x: x + 0.3, z }, flat); } },
+  { label: 'garden gate', w: 3.5, h: 1.6, make: (x, z) => {
+    // the gate builder draws at the landing; shift a copy here
+    const b = new MeshBuilder();
+    b.sway = 0;
+    PIECES.gate(b, flat);
+    const m = new THREE.Mesh(b.toGeometry(), propMat);
+    m.position.set(x + 11.25, 0, z - 46.6);
+    m.castShadow = true;
+    scene.add(m);
+  } },
+  { label: 'lily pads', w: 3, h: 0.6, make: (x, z) => {
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(1.4, 24).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#35b0ae' }));
+    pool.position.set(x, 0.005, z);
+    scene.add(pool);
+    let s = 3;
+    const rng = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+    [[0, 0, 0.3, true], [0.6, 0.3, 0.22, false], [-0.5, 0.4, 0.25, false], [0.2, -0.6, 0.2, false], [-0.6, -0.4, 0.18, true]].forEach(([dx, dz, r, f]) => PIECES.lilyPad(props, x + dx, z + dz, r, rng, f));
+  } },
+  { label: 'reeds', w: 2, h: 1.6, make: (x, z) => { let s = 9; PIECES.reedClump(props, x, 0, z, () => ((s = (s * 16807) % 2147483647) / 2147483647)); } },
+  { label: 'mushrooms', w: 1.5, h: 0.4, make: (x, z) => { let s = 5; PIECES.mushroomCluster(props, x, z, flat, () => ((s = (s * 16807) % 2147483647) / 2147483647)); } },
+  { label: 'white ibis', w: 2, h: 1.1, make: (x, z) => {
+    const { body, head } = PIECES.ibisParts();
+    const mat = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: makeToonGradient(TOON_LEAF) });
+    const g = new THREE.Group();
+    const neck = new THREE.Group();
+    neck.position.set(0.19, 0.56, 0);
+    neck.add(new THREE.Mesh(head.toGeometry(), mat));
+    g.add(new THREE.Mesh(body.toGeometry(), mat), neck);
+    g.position.set(x, 0, z);
+    g.rotation.y = 1.2;
+    g.scale.setScalar(1.25);
+    g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    scene.add(g);
+  } },
+]);
+
+for (const [b, mat] of [[wood, mats.wood], [leaf, mats.leaf], [props, propMat]]) {
+  if (!b.triangles) continue;
+  const m = new THREE.Mesh(b.toGeometry(), mat);
+  m.castShadow = m.receiveShadow = true;
+  scene.add(m);
+}
+
+const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.2, 800);
+const controls = new OrbitControls(camera, renderer.domElement);
+const r = Q.get('row');
+if (Q.get('cam')) {
+  const c = Q.get('cam').split(',').map(Number);
+  camera.position.set(c[0], c[1], c[2]);
+  controls.target.set(c[3], c[4], c[5]);
+} else if (r && rows[r] != null) {
+  const w = rowX[r];
+  const h = { A: 9, B: 5, C: 3, D: 1.6, E: 0.9 }[r];
+  const d = 0.6 * w;
+  camera.position.set(0, h * 0.5 + d * 0.12, rows[r] + d);
+  controls.target.set(0, h * 0.5, rows[r]);
+} else {
+  camera.position.set(0, 60, 165);
+  controls.target.set(0, 4, 30);
+}
+controls.update();
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  labels.setSize(innerWidth, innerHeight);
+});
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  setVegFrame(clock.getElapsedTime());
+  controls.update();
+  renderer.render(scene, camera);
+  labels.render(scene, camera);
+});
+</script>
+</body>
+</html>

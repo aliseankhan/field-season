@@ -1,0 +1,156 @@
+{
+ "frame": {
+  "origin_E": 573150,
+  "origin_N": 2840100,
+  "origin_h": -24.9,
+  "axes": "x = E - E0, y = h - h0, z = -(N - N0)"
+ },
+ "cell": 0.25,
+ "cols": 680,
+ "rows": 740,
+ "x0": -69.875,
+ "z0": -114.875,
+ "layout": "row-major, row 0 is the north edge (smallest z), column index grows with +x, row index with +z",
+ "height": {
+  "file": "terrain_height.u16",
+  "scale": 0.001,
+  "offset": -3.0,
+  "dtype": "uint16 little-endian"
+ },
+ "mask": {
+  "file": "terrain_mask.u8",
+  "bits": {
+   "water": 1,
+   "island": 2,
+   "causeway": 4,
+   "bank": 8,
+   "thicket": 16,
+   "walkable": 32,
+   "fringe": 64
+  }
+ },
+ "canopy": {
+  "file": "terrain_canopy.u8",
+  "scale": 0.1,
+  "dtype": "uint8"
+ },
+ "start": {
+  "x": -11.36,
+  "z": 39.0,
+  "y": 0.36,
+  "heading": 0.1163,
+  "heading_convention": "radians; 0 faces -z (north); positive turns towards -x (anticlockwise seen from above, as three.js rotation.y); forward = (-sin h, 0, -cos h)"
+ },
+ "walk_bounds": [
+  -45.5,
+  -33.5,
+  62.75,
+  46.5
+ ],
+ "stats": {
+  "grid_cells": 503200,
+  "file_bytes": {
+   "height": 1006400,
+   "mask": 503200,
+   "canopy": 503200
+  },
+  "island_land_m2": 4323.5,
+  "island_polygon_m2": 4474.0,
+  "causeway_m2": 165.2,
+  "landing_m2": 25.2,
+  "bank_m2": 11866.2,
+  "fringe_m2": 6407.9,
+  "water_m2": 14452.8,
+  "walkable_m2": 3238.2,
+  "walkable_share_of_island": 0.7093,
+  "island_thicket_share": 0.2754,
+  "open_island_cut_off_m2": 66.1,
+  "shore_band_thicket_share": 0.4724,
+  "fringe_water_or_thicket_share": 0.9805,
+  "height_y": {
+   "island": {
+    "min": 0.055,
+    "median": 0.509,
+    "max": 1.019
+   },
+   "causeway": {
+    "min": 0.068,
+    "median": 0.237,
+    "max": 0.378
+   },
+   "bank": {
+    "min": 0.03,
+    "median": 0.409,
+    "max": 2.107
+   },
+   "islet": {
+    "min": 0.03,
+    "median": 0.233,
+    "max": 0.3
+   },
+   "walkable": {
+    "min": 0.075,
+    "median": 0.5,
+    "max": 1.019
+   },
+   "lake_bed": {
+    "min": -1.2,
+    "median": -0.36,
+    "max": -0.063
+   },
+   "lake_bed_shallow": {
+    "min": -0.36,
+    "median": -0.36,
+    "max": -0.063
+   }
+  },
+  "causeway": {
+   "garden_end": {
+    "x": -11.07,
+    "z": 41.5
+   },
+   "island_end": {
+    "x": -13.49,
+    "z": 20.75
+   },
+   "x_range": [
+    -21.0,
+    -4.25
+   ],
+   "z_range": [
+    20.75,
+    41.5
+   ],
+   "length_m": 20.9,
+   "width_m": {
+    "min": 3.25,
+    "median": 8.0,
+    "max": 14.0
+   },
+   "bearing_deg": 353.3,
+   "note": "neck of land between water on both sides, south-west of the island, running roughly north to the island from the south bank"
+  },
+  "canopy_from_0.25m_share": 0.3241,
+  "canopy_cells_zeroed_on_open_water": 3871,
+  "canopy_cells_dropped_as_water_specks": 167,
+  "shallow_water_m2": 7251.6,
+  "thicket_trunk_blobs_dropped": 17,
+  "unseen_cells_filled_as_lake": 9512,
+  "unseen_cells_filled_as_bank": 8252,
+  "land_cells_below_lake_refilled": 16,
+  "land_spike_cells_refilled": 1124,
+  "bank_implausible_cells_refilled": 1664,
+  "islet_m2": 642.2,
+  "island_scan_positions": 51,
+  "island_scan_positions_walkable": 47,
+  "island_scan_positions_within_1m_of_walkable": 48,
+  "method": {
+   "ground": "site ground 0.5 m; unseen land, land below the lake, spikes over 0.5 m above a 10.5 m median and bank readings above min(2.5, 0.4 + 0.4 x distance to water) m refilled by a harmonic fill; bilinear to 0.25 m; Gaussian sigma 0.35 m; land floored at y = 0.03; mangrove islets capped at y = 0.30",
+   "bed": "water cells: y from -0.06 at the shore, -0.36 at 1.5 m, easing to -1.20 by 7 m from land; under the fringe and under canopy the bed is held no deeper than -0.36, easing back over 2.0 m outside",
+   "thicket": "0-1 m and 1-2 m bands both present; opened with a 0.50 m radius disk, closed 0.25 m, cleared 0.35 m beyond each landmark stem collider, blobs under 3.0 m2 touching a stem dropped, blobs under 1.5 m2 dropped, holes under 1.0 m2 filled, never on bare cells",
+   "walkable": "island, causeway and a 3 m radius landing on the bank, minus thicket, opened by 0.25 m, 4-connected component holding the start",
+   "canopy": "0.25 m canopy height where mapped, else 0.5 m site vegetation height (below 0.5 m read as none); 0 on open water, and blobs under 3.0 m2 standing mostly on water (reflections) dropped",
+   "classes": "island = land polygon minus causeway; fringe = crop outline minus island, causeway and bank; water = water beneath (open or under canopy) plus unseen lake; mask bits are exclusive except thicket, walkable and fringe"
+  }
+ }
+}

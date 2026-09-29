@@ -1,0 +1,134 @@
+/* The opening's own bits of UI (src/story/kit_hunt.js, flow.js): the card that pops up
+   when a piece of the scattered kit is found. The rest of the opening uses the UI kit. */
+
+#ui .kh-card {
+  position: absolute;
+  left: 50%;
+  bottom: 4.6em;
+  display: flex;
+  align-items: center;
+  gap: 0.85em;
+  width: min(25em, calc(100% - 2em));
+  padding: 0.7em 1.15em 0.75em 0.75em;
+  border-radius: 1.3em;
+  background: var(--paper, #fff8e6);
+  border: 0.16em solid var(--gold, #f5c542);
+  box-shadow: var(--shadow, 0 0.5em 1.4em rgba(40, 60, 50, 0.22));
+  color: var(--ink, #4a3e2c);
+  opacity: 0;
+  transform: translate(-50%, 1.2em) scale(0.92);
+  transition: opacity 0.3s, transform 0.3s cubic-bezier(0.3, 1.5, 0.5, 1);
+  pointer-events: none;
+}
+#ui .kh-card.is-on {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+}
+#ui .kh-card-art {
+  flex: none;
+  width: 4.2em;
+  height: 4.2em;
+  border-radius: 1em;
+  background: #fff1c4;
+  display: grid;
+  place-items: center;
+}
+#ui .kh-card.is-on .kh-card-art {
+  animation: kh-wiggle 0.7s 0.15s ease-in-out;
+}
+#ui .kh-card-art svg {
+  width: 3.4em;
+  height: 3.4em;
+}
+#ui .kh-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12em;
+  min-width: 0;
+}
+#ui .kh-card-text small {
+  font-size: max(11px, 0.78em);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #b07a12;
+}
+#ui .kh-card-text b {
+  font-family: var(--font-display, inherit);
+  font-size: 1.22em;
+  line-height: 1.15;
+  color: var(--leaf-dark, #2b6a3f);
+}
+#ui .kh-card-text span {
+  font-size: 0.95em;
+  line-height: 1.3;
+  font-weight: 600;
+}
+#ui .kh-card-text kbd {
+  display: inline-block;
+  min-width: 1.3em;
+  padding: 0 0.3em;
+  border-radius: 0.35em;
+  background: #fff;
+  border: 0.1em solid var(--paper-edge, #e5cf9f);
+  box-shadow: 0 0.1em 0 var(--paper-edge, #e5cf9f);
+  font: inherit;
+  font-weight: 800;
+  font-size: 0.9em;
+  text-align: center;
+}
+#ui .kh-card-pips {
+  display: flex;
+  gap: 0.3em;
+  margin-top: 0.3em;
+}
+#ui .kh-card-pips i {
+  width: 0.62em;
+  height: 0.62em;
+  border-radius: 50%;
+  background: #eadbb6;
+}
+#ui .kh-card-pips i.is-on {
+  background: var(--gold, #f5c542);
+  box-shadow: 0 0 0 0.12em #fff1c4;
+}
+@keyframes kh-wiggle {
+  0%, 100% { transform: rotate(0) scale(1); }
+  30% { transform: rotate(-8deg) scale(1.1); }
+  60% { transform: rotate(6deg) scale(1.05); }
+}
+body.reduce-motion #ui .kh-card,
+body.reduce-motion #ui .kh-card.is-on .kh-card-art {
+  transition: opacity 0.3s;
+  animation: none;
+}
+body.ui-title-on #ui .kh-card {
+  display: none;
+}
+
+/* the HUD checklist's row of the five pieces of kit, lit as each is found */
+#ui .hud-kit-row {
+  display: flex;
+  gap: 0.28em;
+  margin: 0.1em 0 0.35em 2.1em;
+}
+#ui .hud-kit-row i {
+  display: grid;
+  place-items: center;
+  width: 1.55em;
+  height: 1.55em;
+  border-radius: 50%;
+  background: #efe4c8;
+  color: #b9a784;
+  opacity: 0.8;
+}
+#ui .hud-kit-row i .ui-icon {
+  width: 1em;
+  height: 1em;
+}
+#ui .hud-kit-row i.is-on {
+  background: #ffe89a;
+  color: #a7700c;
+  opacity: 1;
+  box-shadow: 0 0 0 0.1em #fff6d2;
+}

@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stroud Lab: Field Season, anole gallery</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #d9ecf6; font-family: ui-rounded, system-ui, sans-serif; }
+  canvas { display: block; }
+  .tag { font-size: 12px; line-height: 1.25; color: #24321e; background: rgba(255, 255, 255, 0.86); padding: 3px 9px; border-radius: 10px; white-space: nowrap; text-align: center; }
+  .tag small { display: block; color: #5d6b55; font-size: 10px; }
+  #bar { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; max-width: 94vw; }
+  #bar button { font: inherit; font-size: 13px; border: 0; border-radius: 12px; padding: 5px 11px; background: rgba(255, 255, 255, 0.8); color: #24321e; cursor: pointer; }
+  #bar button.on { background: #ff8a4c; color: #fff; }
+  #now { position: absolute; left: 14px; bottom: 12px; font-size: 13px; color: #24321e; background: rgba(255, 255, 255, 0.8); padding: 6px 11px; border-radius: 10px; }
+  #now b { color: #c2531f; }
+  #links { position: absolute; right: 14px; bottom: 12px; font-size: 13px; background: rgba(255, 255, 255, 0.8); padding: 6px 11px; border-radius: 10px; }
+  #links a { color: #24321e; margin: 0 4px; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="bar"></div>
+<div id="now"></div>
+<div id="links">close up: <a href="?sp=cristatellus">crested</a><a href="?sp=sagrei">brown</a><a href="?sp=carolinensis">green</a><a href="?sp=distichus">bark</a><a href="?sp=equestris">knight</a> · <a href="?scene=perch">perches</a> · <a href="?">all</a></div>
+<pre id="log" hidden></pre>
+<script>
+  // console errors and warnings land in #log, so a DOM dump shows them
+  (function () {
+    const log = (kind) => { const f = console[kind]; console[kind] = function (...a) { document.getElementById('log').textContent += kind + ': ' + a.map(String).join(' ').slice(0, 4000) + '\n'; f.apply(console, a); }; };
+    log('error'); log('warn');
+    addEventListener('error', (e) => { document.getElementById('log').textContent += 'error: ' + e.message + '\n'; });
+  })();
+</script>
+<script type="module">
+// Every anole, male and female, cycling through what they can do. Flags:
+//   ?act=idle|headbob|pushup|dewlap|run|flatten|gape|curl|stressed|backpack|sleep|droop  hold one action
+//   ?scene=perch   the species on a trunk, a branch, a leaf and the ground
+//   ?view=near|far|side|top|front   camera; ?sp=<species> one species close up
+//   ?t=seconds     freeze the clock (for screenshots); ?stats=1 counts in the corner
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { SHADOW_TINT } from '../world/sky.js'; // installs the tinted shadows the game uses
+import { createAnoleRenderer, SPECIES, ANOLE_INFO, display, displayLength } from './anole.js';
+
+const Q = new URLSearchParams(location.search);
+const FIXED_T = Q.has('t') ? Number(Q.get('t')) : null;
+const ONLY = Q.get('sp');
+const PERCH = Q.get('scene') === 'perch';
+if (Q.has('clean')) document.head.insertAdjacentHTML('beforeend', '<style>#bar, #now, #links, .tag { display: none; }</style>');
+void SHADOW_TINT;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+const labels = new CSS2DRenderer();
+labels.setSize(innerWidth, innerHeight);
+Object.assign(labels.domElement.style, { position: 'absolute', top: '0', left: '0', pointerEvents: 'none' });
+document.body.appendChild(labels.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#d9ecf6');
+scene.fog = new THREE.Fog('#e4efe2', 30, 80);
+const sun = new THREE.DirectionalLight('#ffe8c2', 3.2);
+sun.position.set(-3, 7, 5);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.01;
+Object.assign(sun.shadow.camera, { left: -4, right: 4, top: 4, bottom: -4, near: 1, far: 20 });
+scene.add(sun, new THREE.HemisphereLight('#b8c2f4', '#a8c67c', 1.3));
+
+const toon = (hex) => new THREE.MeshToonMaterial({ color: hex });
+const ground = new THREE.Mesh(new THREE.CircleGeometry(30, 64).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#95d163' }));
+ground.receiveShadow = true;
+scene.add(ground);
+
+const anoles = createAnoleRenderer({ maxPerSpecies: 8 });
+scene.add(anoles.group);
+
+function label(html, x, y, z) {
+  const d = document.createElement('div');
+  d.className = 'tag';
+  d.innerHTML = html;
+  const o = new CSS2DObject(d);
+  o.position.set(x, y, z);
+  scene.add(o);
+  return d;
+}
+
+const lizards = [];
+function place(sp, sex, pos, up, fwd, extra = {}) {
+  const h = anoles.add(sp, sex);
+  h.position.copy(pos); h.up.copy(up).normalize(); h.forward.copy(fwd).normalize();
+  Object.assign(h, extra);
+  lizards.push({ h, sp, sex, base: pos.clone() });
+  return h;
+}
+
+// ---- layout
+const X = { distichus: -1.4, sagrei: -0.88, cristatellus: -0.3, carolinensis: 0.3, equestris: 1.08 };
+const UP = new THREE.Vector3(0, 1, 0), FWD = new THREE.Vector3(1, 0, 0.3).normalize();
+if (PERCH) {
+  // a trunk with a crested anole head down and a flattened bark anole, a knight on a
+  // limb, a green anole on a leaf, a brown anole on the ground among roots
+  const bark = toon('#8a6b50');
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.26, 4, 16), bark);
+  trunk.position.set(0, 2, -0.2);
+  trunk.castShadow = trunk.receiveShadow = true;
+  scene.add(trunk);
+  const limbM = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.1, 2.2, 10), bark);
+  limbM.rotation.z = Math.PI / 2 - 0.08;
+  limbM.position.set(1.2, 1.55, -0.2);
+  limbM.castShadow = limbM.receiveShadow = true;
+  scene.add(limbM);
+  const leaf = new THREE.Mesh(new THREE.CircleGeometry(0.28, 12).rotateX(-Math.PI / 2), new THREE.MeshToonMaterial({ color: '#5fbf52', side: THREE.DoubleSide }));
+  leaf.scale.set(1.5, 1, 0.8);
+  leaf.position.set(-1.25, 1.1, 0.1);
+  leaf.rotation.set(0.25, 0.4, 0.15);
+  leaf.receiveShadow = true;
+  scene.add(leaf);
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.02, 1.1, 6), toon('#4f8f3a'));
+  stem.position.set(-1.25, 0.55, 0.1);
+  scene.add(stem);
+  const ang = 0.25; // round the trunk towards the camera
+  const n = new THREE.Vector3(Math.sin(ang), 0, Math.cos(ang));
+  place('cristatellus', 'm', new THREE.Vector3(0, 1.2, -0.2).addScaledVector(n, 0.233), n, new THREE.Vector3(0, -1, 0));
+  const n2 = new THREE.Vector3(Math.sin(-0.7), 0, Math.cos(-0.7));
+  place('distichus', 'm', new THREE.Vector3(0, 0.55, -0.2).addScaledVector(n2, 0.243), n2, new THREE.Vector3(0.3, 1, 0), { flatten: 0.8 });
+  place('equestris', 'm', new THREE.Vector3(1.35, 1.62, -0.2), new THREE.Vector3(0.05, 1, 0.1), new THREE.Vector3(-1, -0.08, 0));
+  const lp = new THREE.Vector3(-1.25, 1.1, 0.1);
+  const ln = new THREE.Vector3(0, 1, 0).applyEuler(leaf.rotation);
+  place('carolinensis', 'm', lp.addScaledVector(ln, 0.005), ln, new THREE.Vector3(1, 0, 0.3));
+  place('sagrei', 'm', new THREE.Vector3(0.75, 0, 0.55), UP, new THREE.Vector3(-1, 0, 0.4));
+  place('sagrei', 'f', new THREE.Vector3(-0.6, 0, 0.75), UP, new THREE.Vector3(1, 0, 0.5));
+  label('crested anole<small>head down on the trunk</small>', 0.3, 1.55, 0.1);
+  label('bark anole<small>pressed flat to the bark</small>', -0.45, 0.85, 0.1);
+  label('knight anole<small>on a limb</small>', 1.35, 2.05, -0.2);
+  label('green anole<small>on a leaf</small>', -1.25, 1.5, 0.1);
+  label('brown anoles<small>on the ground</small>', 0.1, 0.35, 0.7);
+} else {
+  for (const sp of SPECIES) {
+    if (ONLY && sp !== ONLY) continue;
+    const info = ANOLE_INFO[sp];
+    const x = ONLY ? -info.length * 0.1 : X[sp];
+    const gap = ONLY ? info.length * 0.55 : 0.3;
+    const one = ONLY && Q.get('sex');
+    if (one) {
+      place(sp, Q.get('sex'), new THREE.Vector3(0, 0, 0), UP, FWD);
+      continue;
+    }
+    place(sp, 'm', new THREE.Vector3(x, 0, -gap), UP, FWD);
+    place(sp, 'f', new THREE.Vector3(x, 0, gap), UP, FWD);
+    const ly = ONLY ? info.length * 0.3 : 0.12 + info.length * 0.16;
+    lizards.at(-2).tag = label(`${info.common}<small>male</small>`, x, ly, -gap);
+    lizards.at(-1).tag = label(`${info.common}<small>female</small>`, x, ly * 0.9, gap);
+  }
+}
+
+// ---- camera
+const camera = new THREE.PerspectiveCamera(36, innerWidth / innerHeight, 0.05, 200);
+const V = Q.get('view') || (ONLY ? 'near' : PERCH ? 'perch' : 'mid');
+const views = {
+  mid: [[-0.12, 1.3, 3.05], [-0.12, 0.08, 0.05]],
+  far: [[-0.2, 4.2, 6.6], [-0.2, 0.1, 0]],
+  near: [[0.25, 0.75, 1.0], [0.05, 0.05, 0]],
+  profile: [[0.05, 0.22, 1.5], [0.05, 0.1, 0]],
+  head: [[0.42, 0.16, 0.3], [0.1, 0.05, 0.0]],
+  back: [[-0.55, 0.6, 0.22], [0.02, 0.02, 0.0]],
+  hero: [[0.3, 0.3, 0.55], [0.0, 0.05, 0.0]],
+  side: [[-0.2, 0.3, 4.2], [-0.2, 0.12, 0]],
+  top: [[-0.2, 5.2, 0.8], [-0.2, 0, 0]],
+  front: [[4.2, 1.2, 0.5], [0, 0.1, 0]],
+  perch: [[0.1, 1.9, 4.6], [0.1, 1.0, 0]],
+};
+const [cp, ct] = views[V] || views.mid;
+camera.position.set(...cp);
+if (ONLY && ['near', 'profile', 'head', 'back', 'hero'].includes(V)) {
+  const L = ANOLE_INFO[ONLY].length;
+  const k = L * 1.8;
+  camera.position.set(cp[0] * k, cp[1] * k, cp[2] * k);
+  ct[0] *= k; ct[1] *= k; ct[2] *= k;
+}
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(...ct);
+controls.update();
+
+// ---- actions
+const ACTIONS = [
+  ['idle', 'idle', 3.5], ['headbob', 'head bob', 2.6], ['pushup', 'push-up', 2.6], ['dewlap', 'dewlap', 3.2],
+  ['run', 'run', 2.6], ['flatten', 'flatten', 2.4], ['gape', 'gape', 2.2], ['curl', 'tail curl', 2.4],
+  ['stressed', 'stressed', 2.4], ['backpack', 'backpack', 2.6], ['sleep', 'asleep', 2.4], ['droop', 'tail droop', 2.6],
+];
+const cycleLen = ACTIONS.reduce((s, a) => s + a[2], 0);
+let fixed = Q.get('act');
+const bar = document.getElementById('bar');
+const now = document.getElementById('now');
+const buttons = {};
+for (const [key, name] of [['cycle', 'cycle all'], ...ACTIONS]) {
+  const b = document.createElement('button');
+  b.textContent = name;
+  b.onclick = () => { fixed = key === 'cycle' ? null : key; refreshBar(); };
+  bar.appendChild(b);
+  buttons[key] = b;
+}
+function refreshBar() { for (const k in buttons) buttons[k].classList.toggle('on', (fixed || 'cycle') === k); }
+refreshBar();
+if (PERCH) bar.style.display = 'none';
+
+const PACKS = [0xff7a3d, 0x4fa3b8, 0xffd23e, 0xb56fe0, 0xff5c8a];
+const dsp = { bob: 0, pushup: 0, dewlap: 0 };
+const env = (tau, len, ramp = 0.3) => Math.min(1, tau / ramp, (len - tau) / ramp);
+
+function pose(L, key, tau, len, t, i) {
+  const h = L.h;
+  h.bob = h.pushup = h.dewlap = h.gape = h.flatten = h.tailCurl = h.tint = h.sleep = h.tailDroop = h.tailDroopAt = 0;
+  h.gait = 0; h.headYaw = 0; h.headPitch = 0; h.backpack = null; h.idle = 1;
+  h.position.copy(L.base);
+  const sp = L.sp;
+  if (key === 'headbob' || key === 'pushup' || key === 'dewlap') {
+    const dl = displayLength(sp, key);
+    display(sp, key, (tau + i * 0.07) % (dl + 0.4), dsp);
+    h.bob = dsp.bob; h.pushup = dsp.pushup; h.dewlap = dsp.dewlap;
+  } else if (key === 'run') {
+    const e = Math.max(0, env(tau, len, 0.35));
+    h.gait = e;
+    h.gaitPhase = t * 60 % (Math.PI * 64);
+    h.idle = 0;
+  } else if (key === 'flatten') {
+    h.flatten = Math.max(0, env(tau, len, 0.5));
+    h.tint = 0.3 * h.flatten;
+  } else if (key === 'gape') {
+    h.gape = Math.max(0, env(tau, len, 0.35));
+    h.headPitch = 0.1 * h.gape;
+  } else if (key === 'curl') {
+    h.tailCurl = Math.sin(tau * 2.4);
+  } else if (key === 'sleep') {
+    h.sleep = Math.max(0, env(tau, len, 0.5));
+    h.idle = 0;
+  } else if (key === 'droop') {
+    // the tail over the end of a perch: flat for the first third, then hanging
+    h.tailDroopAt = 0.3;
+    h.tailDroop = 0.85 * Math.max(0, env(tau, len, 0.6));
+  } else if (key === 'stressed') {
+    h.tint = Math.max(0, env(tau, len, 0.6));
+  } else if (key === 'backpack') {
+    h.backpack = PACKS[i % PACKS.length];
+    h.headYaw = 0.5 * Math.sin(tau * 1.6 + i);
+  } else {
+    h.headYaw = 0.35 * Math.sin(t * 0.8 + i * 1.3);
+  }
+}
+
+const clock = new THREE.Clock();
+let simT = 0;
+function frame() {
+  const dt = Math.min(0.05, clock.getDelta());
+  simT += dt;
+  const t = FIXED_T ?? simT;
+  let key, tau, len, name;
+  if (fixed) {
+    const a = ACTIONS.find((x) => x[0] === fixed) || ACTIONS[0];
+    [key, name, len] = a;
+    len = Math.max(len, 3.2);
+    tau = t % len;
+  } else {
+    let u = t % cycleLen;
+    for (const a of ACTIONS) { if (u < a[2]) { [key, name, len] = a; tau = u; break; } u -= a[2]; }
+  }
+  if (!PERCH) lizards.forEach((L, i) => pose(L, key, tau, len, t, i));
+  else lizards.forEach((L, i) => { L.h.headYaw = 0.35 * Math.sin(t * 0.8 + i * 1.3); });
+  if (PERCH && fixed) lizards.forEach((L, i) => pose(L, key, tau, len, t, i));
+  anoles.update(FIXED_T != null ? 0.016 : dt, t);
+  controls.update();
+  renderer.render(scene, camera);
+  labels.render(scene, camera);
+  const s = anoles.stats;
+  now.innerHTML = PERCH ? 'Perches' : `Now: <b>${name}</b> · ${s.active} anoles in ${s.drawCalls} draw calls, ${renderer.info.render.triangles.toLocaleString('en-GB')} triangles`;
+}
+renderer.setAnimationLoop(frame);
+// headless Chrome gives no animation frames: pump them from a timer when stalled
+let last = performance.now();
+const tick0 = frame;
+renderer.setAnimationLoop(() => { last = performance.now(); tick0(); });
+setInterval(() => { if (performance.now() - last > 120) { last = performance.now(); tick0(); } }, 40);
+
+addEventListener('resize', () => {
+  renderer.setSize(innerWidth, innerHeight);
+  labels.setSize(innerWidth, innerHeight);
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+});
+window.__anoles = { anoles, lizards, scene, camera, renderer };
+</script>
+</body>
+</html>

@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stroud Lab: Field Season, crocodile poses</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #d9ecf6; font-family: ui-rounded, "SF Pro Rounded", system-ui, sans-serif; }
+  canvas { display: block; }
+  .tag { position: absolute; transform: translate(-50%, 0); font-size: 13px; line-height: 1.25; color: #24321e; background: rgba(255, 252, 240, 0.9);
+         padding: 4px 10px; border-radius: 10px; white-space: nowrap; text-align: center; pointer-events: none; box-shadow: 0 2px 8px rgba(40, 60, 50, 0.15); }
+  .tag small { display: block; color: #5d6b55; font-size: 11px; }
+  #help { position: absolute; left: 10px; bottom: 10px; font-size: 12px; color: #24321e; background: rgba(255, 255, 255, 0.8); padding: 6px 10px; border-radius: 10px; }
+  #help a { color: #2f6b5a; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="labels"></div>
+<div id="help">Drag to orbit, wheel to zoom. Close-ups: <a href="?pose=swim">swimming</a> · <a href="?pose=slide">belly slide</a> · <a href="?pose=bask">basking</a> · <a href="?pose=hiss">hiss</a> · <a href="?pose=crawl">crawling</a> · <a href="?pose=snap">snap</a> · <a href="?">all</a></div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { createCrocMeshes, defaultAnim, CROC } from './croc_model.js';
+import { createCrocFx } from './croc_fx.js';
+
+const Q = new URLSearchParams(location.search);
+const still = Q.has('still');
+const only = Q.get('pose');
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#d9ecf6');
+scene.fog = new THREE.Fog('#e4efe2', 40, 120);
+const sun = new THREE.DirectionalLight('#ffe8c2', 2.9);
+sun.position.set(-8, 14, 9);
+sun.target.position.set(0, 0, 0);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.bias = -0.0003;
+sun.shadow.normalBias = 0.02;
+Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 12, bottom: -12, near: 1, far: 50 });
+scene.add(sun, sun.target, new THREE.HemisphereLight('#b8c2f4', '#a8c67c', 1.25));
+
+// A lawn with a pool cut into its left side for the swimmer and the slide.
+const PX = -5.3, PZ = 0.4, PR = 3.2;
+const lawn = new THREE.Mesh(new THREE.CircleGeometry(40, 64).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#8fcf5f' }));
+lawn.receiveShadow = true;
+scene.add(lawn);
+const bed = new THREE.Mesh(new THREE.CircleGeometry(PR, 48).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#5aa59a' }));
+bed.position.set(PX, -0.7, PZ);
+const rim = new THREE.Mesh(new THREE.CylinderGeometry(PR, PR, 0.72, 48, 1, true), new THREE.MeshLambertMaterial({ color: '#a27b52', side: THREE.BackSide }));
+rim.position.set(PX, -0.34, PZ);
+const pool = new THREE.Mesh(new THREE.CircleGeometry(PR, 48).rotateX(-Math.PI / 2),
+  new THREE.MeshPhongMaterial({ color: '#35b0ae', transparent: true, opacity: 0.88, shininess: 120, specular: 0x333333 }));
+pool.position.set(PX, 0.0, PZ);
+pool.renderOrder = 1;
+pool.receiveShadow = true;
+// the lawn has a hole where the pool is
+lawn.material.onBeforeCompile = (sh) => {
+  sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vW;').replace('#include <project_vertex>', '#include <project_vertex>\nvW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vW;').replace('#include <clipping_planes_fragment>', 'if (length(vW.xz - vec2(' + PX.toFixed(2) + ', ' + PZ.toFixed(2) + ')) < ' + PR.toFixed(2) + ') discard;\n#include <clipping_planes_fragment>');
+};
+scene.add(bed, rim, pool);
+
+// Headings face right and a little towards the camera, so each pose shows in profile.
+const H = -2.0;
+const POSES = [
+  { key: 'swim', label: 'Swimming', sub: 'eyes, nose, snout and back scutes above the water', x: -6.5, z: -0.6, heading: H,
+    anim: (a, t) => { a.swimPhase = t * 3.2; a.swimAmp = 1; a.tuck = 1; a.headPitch = CROC.swimHeadPitch; a.bend = 0.15 * Math.sin(t * 0.4); }, y: CROC.floatY, pitch: CROC.swimPitch, wake: true },
+  { key: 'slide', label: 'Belly slide', sub: 'legs tucked, back into the water', x: -1.75, z: 1.6, heading: 1.45, pitch: -0.22, lift: -0.05,
+    anim: (a, t) => { a.tuck = 0.8; a.swimPhase = t * 5; a.swimAmp = 0.4; a.headPitch = -0.05; }, ring: true },
+  { key: 'bask', label: 'Basking', sub: 'mouth open to cool off', x: 1.0, z: -1.6, heading: H,
+    anim: (a, t) => { a.jaw = 0.5; a.headPitch = 0.22; a.tailCurl = 0.45; a.breath = Math.sin(t * 1.2); a.blink = Math.max(0, Math.sin(t * 0.9) * 8 - 7); } },
+  { key: 'hiss', label: 'Hiss', sub: 'head up, a warning "!"', x: 4.8, z: -1.6, heading: H,
+    anim: (a, t) => { a.headPitch = 0.34; a.jaw = 0.42 + 0.05 * Math.sin(t * 18); a.headYaw = 0.35; a.bend = 0.3; a.breath = 1; a.tailCurl = 0.2 * Math.sin(t * 2); }, alert: true, lookUp: 0.18 },
+  { key: 'crawl', label: 'Crawling out', sub: 'a belly crawl on land', x: 0.6, z: 3.4, heading: H,
+    anim: (a, t) => { a.walk = 1; a.walkPhase = t * 4.2; a.swimPhase = t * 2.1; a.swimAmp = 0.35; a.headPitch = 0.05; } },
+  { key: 'snap', label: 'Snap', sub: 'a comic lunge', x: 4.4, z: 3.4, heading: H,
+    anim: (a) => { a.headPitch = 0.55; a.jaw = 1.05; a.bend = 0.35; a.headYaw = 0.25; a.walk = 0.4; a.walkPhase = 1.2; a.breath = 1; }, snapFx: true, lookUp: 0.3 },
+].filter((p) => !only || p.key === only);
+
+const crocs = createCrocMeshes(POSES.length);
+scene.add(crocs.mesh, crocs.outline);
+const fx = createCrocFx(POSES.length);
+scene.add(fx.mesh);
+
+const camera = new THREE.PerspectiveCamera(36, innerWidth / innerHeight, 0.05, 300);
+const controls = new OrbitControls(camera, renderer.domElement);
+if (only) {
+  const p = POSES[0];
+  const f = new THREE.Vector3(-Math.sin(p.heading), 0, -Math.cos(p.heading));
+  const r = new THREE.Vector3(-f.z, 0, f.x);
+  const up = p.lookUp || 0; // room above the head for the "!" and the SNAP!
+  camera.position.set(p.x, 1.25 + up, p.z).addScaledVector(r, 2.4 + up).addScaledVector(f, 1.6);
+  controls.target.set(p.x, 0.3 + up, p.z).addScaledVector(f, 0.4);
+} else {
+  camera.position.set(-0.9, 7.6, 17.2);
+  controls.target.set(-0.9, 0.0, 0.9);
+}
+const cq = Q.get('cam');
+if (cq) {
+  const v = cq.split(',').map(Number);
+  camera.position.set(v[0], v[1], v[2]);
+  controls.target.set(v[3], v[4], v[5]);
+}
+controls.update();
+
+const labels = POSES.map((p) => {
+  const d = document.createElement('div');
+  d.className = 'tag';
+  d.innerHTML = `${p.label}<small>${p.sub}</small>`;
+  document.getElementById('labels').appendChild(d);
+  return d;
+});
+
+const anims = POSES.map(() => defaultAnim());
+const v = new THREE.Vector3();
+let t = still ? 0.6 : 0;
+const clock = new THREE.Clock();
+function frame() {
+  const dt = still ? 0 : Math.min(0.05, clock.getDelta());
+  t += dt;
+  POSES.forEach((p, i) => {
+    const a = Object.assign(anims[i], defaultAnim());
+    p.anim(a, t);
+    const f = { x: -Math.sin(p.heading), z: -Math.cos(p.heading) };
+    crocs.set(i, { x: p.x, y: (p.y ?? 0) + (p.lift ?? 0), z: p.z, heading: p.heading, pitch: p.pitch || 0 }, a);
+    if (p.wake) fx.wake(i, p.x + f.x * 1.25, p.z + f.z * 1.25, 1);
+    if (p.alert) fx.alert(i, true, p.x + f.x * 0.7, 1.05, p.z + f.z * 0.7);
+    if (p.snapFx) fx.snap(i, p.x + f.x * 1.4, 1.1, p.z + f.z * 1.4, 0.4);
+    if (p.ring && (t % 1.6) < 0.02) fx.ring(i, p.x + f.x * 1.1, p.z + f.z * 1.1, 1.0);
+    v.set(p.x, -0.2, p.z + 1.1).project(camera);
+    labels[i].style.left = ((v.x + 1) / 2) * innerWidth + 'px';
+    labels[i].style.top = ((1 - v.y) / 2) * innerHeight + 'px';
+    labels[i].style.display = !only && v.z < 1 ? '' : 'none'; // a close-up has no tag over the croc
+  });
+  crocs.commit();
+  fx.update(dt || 0.016, t, camera);
+  controls.update();
+  renderer.render(scene, camera);
+}
+renderer.setAnimationLoop(frame);
+// headless screenshots get no animation frames: pump a few
+if (navigator.webdriver || /HeadlessChrome/.test(navigator.userAgent)) setInterval(frame, 50);
+
+addEventListener('resize', () => {
+  renderer.setSize(innerWidth, innerHeight);
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+});
+</script>
+</body>
+</html>
