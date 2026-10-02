@@ -460,10 +460,18 @@ export function build(game) {
     if (t >= 0) sfx.brush(E, t, x, z, k);
   });
   on('fx:splash', (x, z, k) => { const t = play('paddle'); if (t >= 0) sfx.paddle(E, t, x, z, k); });
+  // a basilisk's feet on the water (src/wildlife/basilisk.js), one burst every 0.16 s
+  on('basilisk:patter', (x, z) => { if (!heard(x, z, 18, 0.02)) return; const t = play('patter'); if (t >= 0) sfx.patter(E, t, x, z); });
   on('pole:aim', (e) => { const up = !!(e && e.on); const t = play('swish', up ? 'up' : 'down'); if (t >= 0) sfx.swish(E, t, up); });
   on('pole:whiff', () => { const t = play('whiff'); if (t >= 0) sfx.whiff(E, t); });
   on('pole:bop', () => { const t = play('boing', 'bop'); if (t >= 0) sfx.boing(E, t, true); });
   on('pole:target', (e) => { if (e && !e.inReach) { const t = play('glide', 'far'); if (t >= 0) sfx.glide(E, t, 0.8); } });
+  on('loop:fray', () => { const t = play('fray'); if (t >= 0) sfx.fray(E, t); });
+  // (the snap heard clearly: its toast keeps quiet and the music dips under it)
+  on('loop:snap', () => { quietToasts(); const t = play('flossSnap'); if (t >= 0) { sfx.flossSnap(E, t); duckFor(0.7, 0.5); } });
+  on('loop:tied', () => { const t = play('twang', 'retie'); if (t >= 0) sfx.twang(E, t); });
+  on('pole:creak', (e) => { const t = play('creak', e && e.kind); if (t >= 0) sfx.creak(E, t); });
+  on('pole:break', (e) => { const t = play('crack', e && e.kind); if (t >= 0) sfx.crack(E, t); });
 
   on('croc:warn', (e) => { const t = play('hiss', e && e.croc ? e.croc.id : null); if (t >= 0) sfx.hiss(E, t, e.x, e.z); });
   on('croc:snap', (e) => {

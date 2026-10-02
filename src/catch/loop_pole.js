@@ -36,6 +36,7 @@ const LOCK_WORDS = {
 };
 const SHOW_LOCK = { headbob: 'Head bob! Click now!', pushup: 'Push-up! Click now!', dewlap: 'Dewlap! Click now!' };
 const ALTS = 3; // other lizards in reach marked with a small ring
+const NONE = [];
 const common = (lz) => (SPECIES_NAMES[lz.species] ? SPECIES_NAMES[lz.species].common : 'lizard');
 const SP_INDEX = Object.fromEntries(Object.keys(SPECIES_NAMES).map((k, i) => [k, i]));
 const WHY_INDEX = { far: 0, high: 1, behind: 2, spot: 3, turn: 4, croc: 5, crocClose: 6, hidden: 7 };
@@ -141,6 +142,7 @@ export class LoopPole {
     this._h2 = new THREE.Vector3();
     this._v2 = new THREE.Vector3();
     this._spotRay = new THREE.Ray();
+    this._both = [null, null]; // the anoles, then the lizards' guests (the basilisks)
 
     // scratch
     this._v = new THREE.Vector3();
@@ -235,7 +237,7 @@ export class LoopPole {
     damp(this.tip, this.tipVel, this._c, st, dt, 'y');
     damp(this.tip, this.tipVel, this._c, st, dt, 'z');
 
-    this._faceGoal(dt);
+    if (want) this._faceGoal(dt); // (lowered, the stick turns the player again at once)
     this._writeAvatar();
     this._startle(dt);
 
@@ -287,8 +289,12 @@ export class LoopPole {
     this.game.events.emit('pole:aim', { on: true });
   }
 
+  // Every way aiming ends comes here: the aim let go, the catch over, a card, a talk or a
+  // panel opening, a push, the pole put away or broken. When it was not the player letting
+  // go, the aim still held is dropped, so the pole stays down until the aim is pressed again.
   _end() {
     const g = this.game;
+    if (g.input.down('aim')) g.input.drop('aim');
     if (g.rig) { g.rig.aim = 0; g.rig.aimPoint = null; }
     this.hint(null);
     this._wantHint = null;
@@ -405,6 +411,13 @@ export class LoopPole {
     this._clampReach(gl, this.goal);
   }
 
+  // the lizards to look through: the anoles, then the guests another system draws
+  _lists(L) {
+    const b = this._both;
+    b[0] = L.all; b[1] = L.guests || NONE;
+    return b;
+  }
+
   _alive(lz) {
     return lz.visible && lz.state !== 'flee' && lz.state !== 'hidden' && lz.state !== 'captured' && lz.state !== 'inactive';
   }
@@ -442,7 +455,7 @@ export class LoopPole {
     const yaw = g.rig ? g.rig.yaw : g.player.heading;
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
     const h = this._h;
-    for (const lz of L.all) {
+    for (const list of this._lists(L)) for (const lz of list) {
       if (!this._alive(lz)) continue;
       lz.headPosition(h);
       const dx = h.x - p.x, dz = h.z - p.z, d = Math.sqrt(dx * dx + dz * dz);
@@ -788,7 +801,7 @@ export class LoopPole {
     if (hit && hit.lizard) { this.lock = hit.lizard; return 1; }
     let best = null, bestS = 1;
     const o = ray.origin, d = ray.direction, h = this._h;
-    for (const lz of L.all) {
+    for (const list of this._lists(L)) for (const lz of list) {
       if (!lz.visible) continue;
       lz.headPosition(h);
       const tx = h.x - o.x, ty = h.y - o.y, tz = h.z - o.z;
@@ -818,7 +831,7 @@ export class LoopPole {
     const p = this.game.player.position, h = this.game.player.heading;
     const fx = -Math.sin(h), fz = -Math.cos(h);
     let best = null, bs = Infinity;
-    for (const lz of L.all) {
+    for (const list of this._lists(L)) for (const lz of list) {
       if (!lz.visible) continue;
       const dx = lz.pos.x - p.x, dz = lz.pos.z - p.z;
       const d = Math.hypot(dx, dz);
@@ -942,7 +955,7 @@ export class LoopPole {
     const v = this.loopSpeed;
     if (v <= S.safe) return;
     const h = this._h;
-    for (const lz of L.all) {
+    for (const list of this._lists(L)) for (const lz of list) {
       if (!lz.visible || lz.state === 'frozen' || lz.state === 'flee') continue;
       lz.headPosition(h);
       const d = h.distanceTo(this.loop);

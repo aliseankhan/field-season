@@ -1,5 +1,6 @@
 // The Lizard-dex: a warm paper field notebook with the player's name on the cover.
-// Spreads: the cover and index, one per anole species and one for the crocodile
+// Spreads: the cover and index, one per anole species, one for the brown basilisk (once
+// one has been seen) and one for the crocodile
 // (drawing, names, rarity from the lab's record counts, what was spotted, caught and
 // tagged, the biggest snout-vent length, the research tasks and their stamps), then
 // the tracked lizards, the followed lizards (the perch loggers: an index spread, then one
@@ -43,6 +44,14 @@ export const SPECIES_UI = [
     note: 'One of the biggest anoles of all, from Cuba, with a bony head and a pale stripe on each shoulder. It likes the big trees, often well above your head.',
   },
   {
+    // secret: its page, index entry and stamps join the notebook once one has been seen
+    key: 'basilisk', sci: 'vittatus', common: 'Brown basilisk', tab: 'Bs', latin: 'Basiliscus vittatus', secret: true,
+    note: 'Introduced from Central America, and very rare here. They eat anoles, and they can run on water.',
+    records: '11 on the island in the spring survey',
+    sizes: 'Sizes (provisional): males 110 to 170 mm, females 90 to 130 mm snout to vent.',
+    seenAs: 'Running on the water',
+  },
+  {
     key: 'croc', sci: 'acutus', common: 'American crocodile', latin: 'Crocodylus acutus', spotOnly: true,
     note: 'It cruises the lake and basks on the banks. Watch it from a safe distance and keep back from the water\'s edge.',
   },
@@ -58,6 +67,24 @@ const KIT_INFO = {
   rtk: { tab: 'Plants', title: 'Plant survey', icon: 'rtk', blurb: 'In June the lab recorded 317 island plants with an RTK rover on a 2 m pole.' },
 };
 export const speciesUI = (k) => BY_KEY[k] || null;
+// a species the notebook shows: all of them, but a secret one only once it has been seen
+export function revealed(u) {
+  if (!u.secret) return true;
+  const c = speciesCounts(u.key);
+  return (c.spotted || 0) + (c.caught || 0) > 0;
+}
+export const shownSpecies = () => SPECIES_UI.filter(revealed);
+
+// Today's loops snapped and poles broken, a phrase for each kind there was (the
+// grid page's day notes and the end-of-day card).
+export function breakWords(T) {
+  const out = [];
+  const n = (v) => Math.max(0, Math.floor(Number(v) || 0));
+  if (n(T.loopSnaps)) out.push(`${n(T.loopSnaps)} loop${n(T.loopSnaps) === 1 ? '' : 's'} snapped`);
+  if (n(T.canopyBreaks)) out.push(`${n(T.canopyBreaks)} pole${n(T.canopyBreaks) === 1 ? '' : 's'} broken in the canopy`);
+  if (n(T.carelessBreaks)) out.push(`${n(T.carelessBreaks)} pole${n(T.carelessBreaks) === 1 ? '' : 's'} stubbed and broken`);
+  return out;
+}
 
 const RARITY_CLASS = { common: 'r-common', uncommon: 'r-uncommon', rare: 'r-rare', 'very rare': 'r-very-rare' };
 const PERCH_WORD = {
@@ -144,12 +171,11 @@ export function buildNotebook(game, { tasksModule = null, maps = null, loadStake
   // the followed lizards' pages come and go with the perch loggers: rebuilt as it opens
   function rebuildPages() {
     pages.length = 0;
-    pages.push('cover', ...SPECIES_UI.map((s) => s.key), 'tracked', ...followPagesList(), 'loggers', 'grid', ...KIT_IDS.map((k) => 'kit:' + k));
+    pages.push('cover', ...shownSpecies().map((s) => s.key), 'tracked', ...followPagesList(), 'loggers', 'grid', ...KIT_IDS.map((k) => 'kit:' + k));
   }
   rebuildPages();
   // one bookmark per page, but one for all the Field kit pages and one for the followed lizards
   const tabOf = (id) => (id.startsWith('kit:') ? 'kit' : id.startsWith('follow') ? 'follow' : id);
-  const tabKeys = [...new Set(pages.map(tabOf))];
   let lastKit = 'kit:' + KIT_IDS[KIT_IDS.length - 1];
   let at = 0;
   let card = null, spread = null, tabs = null;
@@ -357,7 +383,8 @@ export function buildNotebook(game, { tasksModule = null, maps = null, loadStake
     let stamps = 0;
     for (const id in state.tasks || {}) if (state.tasks[id] && state.tasks[id].done) stamps++;
     let spotted = 0, caught = 0;
-    for (const u of SPECIES_UI) { const c = speciesCounts(u.key); if (c.spotted || c.caught) spotted++; caught += c.caught || 0; }
+    const shown = shownSpecies();
+    for (const u of shown) { const c = speciesCounts(u.key); if (c.spotted || c.caught) spotted++; caught += c.caught || 0; }
     const fieldDays = (state.days || 0) + (state.phase === 'setup' || state.phase === 'survey' ? 1 : 0);
     const left =
       `<div class="nb-plate"><small>Field notebook of</small><b>${escapeHtml(name)}</b><span>Lizard Island · Stroud Lab</span></div>` +
@@ -367,7 +394,7 @@ export function buildNotebook(game, { tasksModule = null, maps = null, loadStake
       '</div>' +
       '<div class="nb-stats" style="grid-template-columns:repeat(4,1fr)">' +
         stat(fieldDays, fieldDays === 1 ? 'Field day' : 'Field days') +
-        stat(`${spotted}/6`, 'Species') +
+        stat(`${spotted}/${shown.length}`, 'Species') +
         stat(caught, 'Caught') +
         stat(stamps, 'Stamps') +
       '</div>' +
@@ -375,8 +402,9 @@ export function buildNotebook(game, { tasksModule = null, maps = null, loadStake
       `<div class="nb-records">${icon('trophy')} ${bestLine()}</div>`;
     const right =
       '<h2>Lizard-dex</h2><div class="nb-sci" style="font-style:normal">Pick a species to open its page</div>' +
-      '<div class="nb-index" style="margin-top:0.8em">' +
-      SPECIES_UI.map((u) => {
+      // (four across once the basilisk has joined, so the index stays two rows)
+      `<div class="nb-index" style="margin-top:0.8em${shown.length > 6 ? ';grid-template-columns:repeat(4,1fr);font-size:0.86em' : ''}">` +
+      shown.map((u) => {
         const c = speciesCounts(u.key);
         const seen = (c.spotted || 0) + (c.caught || 0) > 0;
         const art = u.key === 'croc' ? crocSVG({ silhouette: !seen }) : anoleSVG(u.sci, { silhouette: !seen, perch: false, dewlap: false });
@@ -401,13 +429,13 @@ export function buildNotebook(game, { tasksModule = null, maps = null, loadStake
     const mod = getTasks();
     let all = mod && (typeof mod.listTasks === 'function' ? mod.listTasks() : mod.TASKS);
     if (!Array.isArray(all)) all = SPECIES_UI.flatMap((u) => taskList(mod, u.key).map((t) => ({ ...t, species: u.key })));
-    const cells = all.map((raw) => {
+    const cells = all.filter((raw) => !(raw.species && BY_KEY[raw.species] && !revealed(BY_KEY[raw.species]))).map((raw) => {
       const t = { id: raw.id, text: raw.text || raw.label || raw.id, target: Number(raw.target ?? raw.goal ?? 1) || 1 };
       const p = taskProgress(t);
       const u = raw.species && BY_KEY[raw.species];
       const title = escapeHtml((u ? u.common + ': ' : '') + t.text);
       if (!p.done) return `<div class="nb-album-cell" title="${title}"><div class="stamp is-empty"></div></div>`;
-      const tone = raw.group === 'setup' ? 'green' : raw.group === 'field' || raw.group === 'kit' ? 'blue' : u && (u.key === 'bark' || u.key === 'knight') ? 'gold' : 'red';
+      const tone = raw.group === 'setup' ? 'green' : raw.group === 'field' || raw.group === 'kit' ? 'blue' : u && (u.key === 'bark' || u.key === 'knight' || u.key === 'basilisk') ? 'gold' : 'red';
       const ic = raw.icon || (u && u.key === 'croc' ? 'eye' : raw.group === 'setup' ? 'check' : raw.group === 'field' ? 'star' : 'lizard');
       return `<div class="nb-album-cell" title="${title}">${stampEl(raw.stamp || (u ? u.common.replace(/ anole$/, '') : 'Done'), tone, ic).outerHTML}</div>`;
     });
@@ -437,10 +465,11 @@ export function buildNotebook(game, { tasksModule = null, maps = null, loadStake
     const left =
       `<h2>${escapeHtml(u.common)}</h2>` +
       `<div><span class="nb-sci">${escapeHtml(u.latin)}</span> <span class="nb-rarity ${rClass}">${icon('star')}${escapeHtml(rWord)}</span></div>` +
-      `<figure class="nb-photo">${art}<figcaption>${seen ? (u.spotOnly ? 'Seen from a safe distance' : 'Male, dewlap out') : 'Not yet seen'}</figcaption></figure>` +
+      `<figure class="nb-photo">${art}<figcaption>${seen ? (u.spotOnly ? 'Seen from a safe distance' : u.seenAs || 'Male, dewlap out') : 'Not yet seen'}</figcaption></figure>` +
       `<p class="nb-note">${escapeHtml(u.note)}</p>` +
       (u.spotOnly ? '<div class="nb-records">Never try to catch it!</div>'
-        : `<div class="nb-records">${icon('book')} ${records.toLocaleString('en-GB')} records in the lab's survey</div>`) +
+        : `<div class="nb-records">${icon('book')} ${escapeHtml(u.records || records.toLocaleString('en-GB') + ' records in the lab\'s survey')}</div>`) +
+      (u.sizes ? `<div class="nb-records">${icon('ruler')} ${escapeHtml(u.sizes)}</div>` : '') +
       (best ? `<div class="nb-records nb-best">${icon('sun')} <b>Best time:</b> ${escapeHtml(best)}</div>` : '');
 
     const safe = !!(state.tasks && state.tasks['croc.spot'] && state.tasks['croc.spot'].done);
@@ -583,6 +612,12 @@ export function buildNotebook(game, { tasksModule = null, maps = null, loadStake
       body;
   }
 
+  // the day's loops snapped and poles broken, under its catches (nothing on a day without)
+  function breaksNote() {
+    const words = breakWords(state.today || {});
+    return words.length ? `<div class="nb-note" style="margin-top:0.6em">${icon('loop_pole')} Breaks today: ${escapeHtml(words.join(', '))}</div>` : '';
+  }
+
   // The grid: the lattice map with the flags (and a gold count of today's catches by
   // each), each flag's catches this season, and today's catches, each by its nearest flag.
   function gridSpread() {
@@ -611,7 +646,7 @@ export function buildNotebook(game, { tasksModule = null, maps = null, loadStake
       '"C07" is column C, row 7. Twelve flags stand all season, each with a temperature logger, and every catch is noted by its nearest flag.</div></div>' +
       '<div class="nb-lg-gridbody">' +
         `<div class="nb-lg-col"><canvas class="nb-map"></canvas><div class="nb-flaglist">${chips || '<em class="nb-sci">No flags up yet.</em>'}</div></div>` +
-        `<div class="nb-lg-col"><h3>${icon('lizard')} Today's catches <small class="nb-lg-count">${today.length}</small></h3><div class="nb-list">${rows}</div></div>` +
+        `<div class="nb-lg-col"><h3>${icon('lizard')} Today's catches <small class="nb-lg-count">${today.length}</small></h3><div class="nb-list">${rows}</div>${breaksNote()}</div>` +
       '</div>';
   }
 
@@ -626,7 +661,7 @@ export function buildNotebook(game, { tasksModule = null, maps = null, loadStake
       at = Math.max(0, pages.indexOf(was));
       el.innerHTML =
         '<div class="nb-spread"></div>' +
-        `<div class="nb-tabs">${tabKeys.map(tabHtml).join('')}</div>` +
+        `<div class="nb-tabs">${[...new Set(pages.map(tabOf))].map(tabHtml).join('')}</div>` +
         `<button type="button" class="ui-card-close nb-close" aria-label="Close">${icon('close')}</button>` +
         '<button type="button" class="nb-arrow is-prev" aria-label="Previous page">&lsaquo;</button>' +
         '<button type="button" class="nb-arrow is-next" aria-label="Next page">&rsaquo;</button>' +

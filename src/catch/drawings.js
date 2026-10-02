@@ -1,7 +1,7 @@
 // SVG drawings for the catch-and-release cards: each anole side on (for the bag and the
 // ruler) and from above (for the paint pen and the backpack), in the colours of the
-// models in src/lizards/anole.js, plus the clear bag and the ruler. Plain strings, so
-// the notebook can use them too.
+// models in src/lizards/anole.js (and the brown basilisk's, src/wildlife/basilisk_model.js),
+// plus the clear bag and the ruler. Plain strings, so the notebook can use them too.
 //
 // Side view: local units with the snout-vent length 100, the snout at x 100 and the
 // vent at x 0, y down; anoleSide() places it with the snout at (x, y) - facing * len.
@@ -29,6 +29,11 @@ export const LOOK = {
   equestris: {
     body: ['#6ed63e', '#6ed63e'], dark: ['#52bd35', '#52bd35'], belly: '#e4f7c4', lip: '#caf0a2', leg: ['#62cc3a', '#62cc3a'],
     dewlap: ['#ffadc6', '#ff9fc0', '#ffe0ea'], pattern: 'stripes', stripe: '#fff6c8', head: 1.3, girth: 1.08, casque: '#46a837',
+  },
+  // no dewlap to go by: a male has the tall head crest (and low crests on the back and tail)
+  basilisk: {
+    body: ['#8a7444', '#8f7a4c'], dark: ['#5f4d2b', '#655230'], belly: '#d9c690', lip: '#f3e5b4', leg: ['#7c6739', '#816c3e'],
+    dewlap: null, pattern: 'basilisk', stripe: '#f6e6a4', crest: '#a17f47', headCrest: true, head: 1.08, girth: 0.95,
   },
 };
 
@@ -63,8 +68,9 @@ export function anoleSide(sp, opts = {}) {
     parts.push(`<path d="M6 ${-8 * g} C -30 ${-8.5 * g} -70 -2 -104 7 C -118 11 -128 8 -134 2 C -126 13 -110 18 -96 16 C -60 14 -28 ${11 * g} 6 ${10 * g} Z" fill="${body}" ${st}/>`);
   }
   if (L.crest && male && !curl) {
-    // the crested anole's tail fin
-    parts.push(`<path d="M2 ${-6 * g} C -8 -19 -22 -21 -34 -15 C -40 -12 -46 -7 -52 -5 C -30 -6 -12 ${-7 * g} 2 ${-6 * g} Z" fill="${L.crest}" ${st}/>`);
+    // the crested anole's tail fin (a basilisk's is lower)
+    const f = L.headCrest ? 0.5 : 1;
+    parts.push(`<path d="M2 ${-6 * g} C -8 ${-19 * f} -22 ${-21 * f} -34 ${-15 * f} C -40 ${-12 * f} -46 -7 -52 -5 C -30 -6 -12 ${-7 * g} 2 ${-6 * g} Z" fill="${L.crest}" ${st}/>`);
   }
   // tail bands
   for (let k = 0; k < (curl ? 0 : 5); k++) {
@@ -91,6 +97,10 @@ export function anoleSide(sp, opts = {}) {
   } else if (L.pattern === 'bars') {
     for (let k = 0; k < 5; k++) pat.push(`<path d="M${8 + k * 13} ${-by * 1.1} q 3 ${by * 0.7} 0 ${by * 1.3}" stroke="${dark}" stroke-width="3.2" fill="none" opacity="0.75"/>`);
     for (let k = 0; k < 4; k++) pat.push(`<ellipse cx="${14 + k * 15}" cy="${-by * 0.35}" rx="4" ry="2.6" fill="${L.lichen}" opacity="0.8"/>`);
+  } else if (L.pattern === 'basilisk') {
+    // two pale stripes down each side: eye to hip, and lip to shoulder
+    pat.push(`<path d="M${hx + hL * 0.32} ${-hy * 0.5} C ${hx - 12} ${-by * 0.78} 40 ${-by * 0.7} 4 ${-by * 0.48}" stroke="${L.stripe}" stroke-width="3.6" fill="none" stroke-linecap="round"/>`);
+    pat.push(`<path d="M95 3.6 Q ${hx + hL * 0.4} ${hy * 0.55} ${hx - 16} ${by * 0.3}" stroke="${L.stripe}" stroke-width="3.2" fill="none" stroke-linecap="round"/>`);
   } else if (L.pattern === 'stripes') {
     pat.push(`<path d="M${hx + hL * 0.2} ${hy * 0.3} Q ${hx} ${hy * 0.6} ${hx - 14} ${by * 0.2}" stroke="${L.stripe}" stroke-width="4.5" fill="none" stroke-linecap="round"/>`);
     pat.push(`<path d="M${hx + hL * 0.5} ${hy * 0.52} L ${hx + hL * 0.85} 3" stroke="${L.stripe}" stroke-width="3" fill="none" stroke-linecap="round"/>`);
@@ -101,9 +111,20 @@ export function anoleSide(sp, opts = {}) {
   if (mark) pat.push(`<circle cx="40" cy="${-by * 0.72}" r="4.6" fill="${mark}" stroke="#fff" stroke-width="1.2"/>`);
   parts.push(`<g clip-path="url(#${id}c)">${pat.join('')}</g>`);
   parts.push(`<path d="${bodyPath}" fill="none" ${st}/>`);
-  if (L.crest && male) parts.push(`<path d="M${hx - 12} ${-by * 0.95} q 3 -4 6 0 q 3 -4 6 0" stroke="${L.crest}" stroke-width="2.4" fill="none"/>`);
+  if (L.crest && male && !L.headCrest) parts.push(`<path d="M${hx - 12} ${-by * 0.95} q 3 -4 6 0 q 3 -4 6 0" stroke="${L.crest}" stroke-width="2.4" fill="none"/>`);
+  if (L.headCrest) {
+    // the crest on the back of the head: tall on a male, a small one on a female; a male's
+    // low saw-tooth crest runs down the back too
+    const top = male ? 3.1 : 1.6;
+    parts.push(`<path d="M${hx + hL * 0.42} ${-hy * 0.86} L${hx - 2} ${-hy * top} L${hx - 7} ${-hy * 0.8} Z" fill="${L.crest}" ${st}/>`);
+    if (male) {
+      let d = `M${hx - 8} ${-by * 0.86}`;
+      for (let x = hx - 8; x > 8; x -= 8) d += ` L${x - 4} ${-by * 1.3} L${x - 8} ${-by * 0.9}`;
+      parts.push(`<path d="${d}" fill="none" stroke="${L.crest}" stroke-width="2.2" stroke-linejoin="round"/>`);
+    }
+  }
   // dewlap
-  if (male || dewlap > 0.5) {
+  if (L.dewlap && (male || dewlap > 0.5)) {
     const d = (male ? 1 : 0.5) * Math.max(0.12, dewlap);
     const dx0 = hx - 6, dx1 = hx + hL * 0.62, dy = 6 + 20 * d;
     const [a, b, c] = L.dewlap;
@@ -162,6 +183,7 @@ export function anoleTop(sp, opts = {}) {
   if (L.pattern === 'chevrons') for (let k = 0; k < 4; k++) parts.push(`<path d="M${-bw * 0.7} ${-50 + k * 12} L0 ${-42 + k * 12} L${bw * 0.7} ${-50 + k * 12}" stroke="${dark}" stroke-width="3.4" fill="none" opacity="0.65"/>`);
   else if (L.pattern === 'spots') for (let k = 0; k < 6; k++) parts.push(`<circle cx="${k % 2 ? 5 : -5}" cy="${-56 + k * 9}" r="2.2" fill="${L.spot}"/>`);
   else if (L.pattern === 'bars') for (let k = 0; k < 4; k++) parts.push(`<path d="M${-bw * 0.8} ${-54 + k * 13} Q 0 ${-48 + k * 13} ${bw * 0.8} ${-54 + k * 13}" stroke="${dark}" stroke-width="3" fill="none" opacity="0.7"/>`);
+  else if (L.pattern === 'basilisk') for (const sx of [-1, 1]) parts.push(`<path d="M${sx * hw * 0.55} -80 Q ${sx * bw * 0.75} -40 ${sx * bw * 0.45} -4" stroke="${L.stripe}" stroke-width="3.2" fill="none" stroke-linecap="round"/>`);
   else parts.push(`<path d="M0 -66 L0 -6" stroke="${dark}" stroke-width="4" opacity="0.4"/>`);
   if (L.casque) parts.push(`<path d="M${-hw * 0.5} -76 L0 -98 L${hw * 0.5} -76" stroke="${L.casque}" stroke-width="3" fill="none"/>`);
   // eyes bulge at the sides of the head
@@ -182,7 +204,7 @@ export function anoleTop(sp, opts = {}) {
 export function bagScene(sp, { sex = 'm', mark = null, pack = null, dewlap = 0 } = {}) {
   // a soft clear bag, twisted shut with a tie, pinched at the top in a hand and held up
   // to the sun; the lizard (a little smaller than on the other cards) lies wholly inside
-  const svl = sp === 'equestris' ? 80 : 92;
+  const svl = sp === 'equestris' || sp === 'basilisk' ? 80 : 92;
   const lizard = anoleSide(sp, { x: 276, y: 206, len: svl, facing: 1, sex, mark, pack, dewlap, tilt: -12, curl: true });
   const rays = [];
   for (let k = 0; k < 9; k++) {

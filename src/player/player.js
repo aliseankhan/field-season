@@ -37,6 +37,7 @@ export class Player {
     // menus' own key, kept as a plain boolean for kit.js, which saves and restores it.
     this._holds = new Set();
     this.pushed = false; // set by a croc's knockback while it moves the player; input waits
+    this.tow = null; // { x, z } m/s: pulled along while held (a basilisk on the loop), set each frame
     this._anim = { speed: 0, crouch: 0, jog: 0, t: 0 }; // reused each frame for the avatar
 
     const s = data.terrain.start;
@@ -96,6 +97,7 @@ export class Player {
     let dz = -cy * my - sy * mx;
     const dl = Math.hypot(dx, dz);
     if (dl > 1e-6) { dx = (dx / dl) * mag * top; dz = (dz / dl) * mag * top; } else { dx = 0; dz = 0; }
+    if (held && this.tow) { dx = this.tow.x; dz = this.tow.z; }
 
     // Accelerate towards it.
     const vx = this.velocity.x, vz = this.velocity.z;

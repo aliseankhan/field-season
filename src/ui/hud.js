@@ -13,6 +13,7 @@ import { openPanel, toast } from './kit.js';
 import { jamesPortrait } from './drawings.js';
 import { settingsHtml, bindSettings } from './settings.js';
 import { boardUp } from './scoreboard.js';
+import { SCRIPT } from '../story/script.js';
 
 // How the HUD names and draws each tool; the ring's own name wins when it has one.
 export const TOOL_UI = {
@@ -30,7 +31,7 @@ export const TOOL_UI = {
 
 const REASONS = {
   creep: 'Creep bonus', display: 'Display bonus', first: 'First of its kind', backpack: 'Backpack fitted',
-  croc: 'Snap!', 'croc spotted': 'Croc spotted', task: 'Task stamped', logger: 'Logger downloaded', loggerRead: 'Logger downloaded',
+  croc: 'Snap!', pole: 'Broken pole', 'croc spotted': 'Croc spotted', task: 'Task stamped', logger: 'Logger downloaded', loggerRead: 'Logger downloaded',
   spot: 'Spotted', catch: 'Caught!', recapture: 'Caught again', measured: 'Spot-on measuring', notes: 'Field notes',
   common: 'Common', uncommon: 'Uncommon', rare: 'Rare', 'very rare': 'Very rare',
   request: 'Request done', mission: 'Field kit', plant: 'Plant logged', scan: 'Laser scan', drone: 'Aerial photo',
@@ -68,6 +69,7 @@ const TASK_SHORT = {
   'green.leaves': 'A green on the leaves', 'green.catch': 'Catch a green anole',
   'bark.spot': 'Spot a bark anole', 'bark.catch': 'Catch 3 bark anoles',
   'knight.canopy': 'A knight up in the canopy', 'knight.tag': 'A backpack on a knight',
+  'basilisk.catch': 'Catch a basilisk', 'basilisk.water': 'A basilisk on the water',
   'croc.spot': 'Spot the crocodile', 'field.display': 'A catch mid display', 'field.creep': '3 catches unnoticed',
   'field.tape': 'Tape 3 perch heights', 'field.gps': 'Download a GPS track',
 };
@@ -154,13 +156,20 @@ export function buildHud(game, { ring, maps, notebook, tasks }) {
     // (in the opening, until the loop pole is found, there is nothing to hold)
     const S = state.setup;
     const noPole = !!(S && !S.done && !(Array.isArray(S.kit) && S.kit.includes('loop_pole')) && (state.phase === 'setup' || state.phase === 'intro'));
-    toolSub.innerHTML = toolId !== 'none' ? 'Hold <kbd>Q</kbd> tools · <kbd>X</kbd> put away' : noPole ? 'Find your loop pole' : 'Hold <kbd>Q</kbd> for tools';
+    // (on the survey day, a broken pole until James hands over another: src/catch/breaks.js)
+    const B = game.catching && game.catching.breaks, broken = !!(B && B.noPole && !B.onTheWay);
+    // (a snapped floss loop, until it is re-tied)
+    const snapped = !!(B && B.snapped && !B.noPole && state.phase === 'survey');
+    tool.classList.toggle('is-snapped', snapped);
+    toolSub.innerHTML = snapped ? escapeHtml(SCRIPT.breaks.toolSnapped) : toolId !== 'none' ? 'Hold <kbd>Q</kbd> tools · <kbd>X</kbd> put away' : noPole ? 'Find your loop pole'
+      : broken ? escapeHtml(SCRIPT.breaks.toolLine) : 'Hold <kbd>Q</kbd> for tools';
     tool.classList.remove('is-new');
     void tool.offsetWidth;
     tool.classList.add('is-new');
     shown.count = -1;
   }
   game.events.on('tool:equip', (e) => setTool(e && typeof e === 'object' ? e.id : e));
+  game.events.on('hud:tool', () => setTool(toolId));
   game.events.on('phase:change', () => { if (toolId === 'none') setTool(null); });
   const cur = ring && ring.current ? ring.current() : null;
   setTool(cur && typeof cur === 'object' ? cur.id : cur);

@@ -92,7 +92,7 @@ export function bagCard(c) {
 // ---------------------------------------------------------------- 2. the ruler
 
 export function rulerCard(c) {
-  const big = c.sp === 'equestris';
+  const big = c.sp === 'equestris' || c.sp === 'basilisk';
   const pxmm = big ? 2.0 : 4.3;
   const max = big ? 200 : 90;
   const A = big ? CATCH.ruler.driftKnight : CATCH.ruler.drift; // mm the ruler drifts either side
@@ -166,7 +166,7 @@ export function rulerCard(c) {
 // ---------------------------------------------------------------- 3. the paint pen
 
 export function paintCard(c) {
-  const len = c.sp === 'equestris' ? 150 : 190;
+  const len = c.sp === 'equestris' || c.sp === 'basilisk' ? 150 : 190;
   const s = len / 100;
   const cx = 300, cy = 112; // the vent, in the stage's units
   const tgt = { x: cx - 30 * s, y: cy }; // the mid back (anoleTop's y -30), turned to lie left
@@ -243,7 +243,7 @@ export function paintCard(c) {
 // ---------------------------------------------------------------- 4. the GPS backpack
 
 export function packCard(c) {
-  const len = c.sp === 'equestris' ? 140 : 180;
+  const len = c.sp === 'equestris' || c.sp === 'basilisk' ? 140 : 180;
   const s = len / 100;
   const cx = 270, cy = 118;
   const tgt = { x: cx - 58 * s, y: cy }; // between the shoulders (anoleTop's y -58)
@@ -251,7 +251,8 @@ export function packCard(c) {
   const P = CATCH.pack;
   return {
     name: 'backpack', title: 'GPS backpack', icon: 'backpack', card: 'catch-card',
-    instructions: 'Big enough for a backpack! Just 0.06 g. Settle it between the shoulders and hold it steady.',
+    instructions: c.sp === 'basilisk' ? 'A backpack for a basilisk! Settle it on its back and hold it steady.'
+      : 'Big enough for a backpack! Just 0.06 g. Settle it between the shoulders and hold it steady.',
     width: '32em', height: '15em',
     foot: 'Move with the mouse or arrow keys · [Esc] skip',
     mount(stage, api) {
@@ -444,7 +445,8 @@ export function heightWords(h, taped) {
 // ---------------------------------------------------------------- the whole sequence
 
 // Runs the cards in turn. kit: { minigame, toast, stamp }; hooks: { measured(svl),
-// marked(q), tagged(q) -> { id, nickname } | null, noted(right), score(points, reason) }.
+// marked(q), beforePack() -> bool or Promise of one (optional: false lets it go without a
+// backpack), tagged(q) -> { id, nickname } | null, noted(right), score(points, reason) }.
 // Returns { measured, marked, tagged, released: true, skipped }.
 export async function runRelease(c, kit, hooks) {
   const out = { measured: null, marked: false, tagged: false, skipped: false };
@@ -471,7 +473,8 @@ export async function runRelease(c, kit, hooks) {
   hooks.marked(paint.quality, paint);
 
   if (c.canPack && !c.tracked) {
-    const pack = await step(packCard(c));
+    const go = hooks.beforePack ? await hooks.beforePack(c) : true;
+    const pack = go ? await step(packCard(c)) : null;
     if (!pack) { out.skipped = false; } // skipping the backpack still notes the perch
     else {
       out.tagged = true;

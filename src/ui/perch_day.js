@@ -338,7 +338,7 @@ export function perchScene(o) {
     parts.push('<g fill="#5fae78" opacity="0.2"><ellipse cx="90" cy="-10" rx="110" ry="40"/><ellipse cx="420" cy="-12" rx="120" ry="42"/></g>');
     parts.push('<g fill="#fff" opacity="0.4"><ellipse cx="150" cy="110" rx="26" ry="12"/><ellipse cx="340" cy="60" rx="20" ry="9"/><ellipse cx="260" cy="170" rx="30" ry="12"/></g>');
   }
-  const big = sp === 'equestris';
+  const big = sp === 'equestris' || sp === 'basilisk';
   const len = big ? 96 : 76; // px of snout-vent length
   const lz = (x, y, facing = 1) => anoleSide(sp, { x, y, len, facing, sex: o.sex || 'm', mark: o.mark || null, pack: o.pack || null });
   let spot;
@@ -377,8 +377,12 @@ export function perchScene(o) {
     parts.push(lz(290, y - 30, 1));
     spot = { x: 360, y: y - 2 };
   } else {
-    // the ground, with leaf litter
+    // the ground, with leaf litter (a basilisk's place by the water: the lake behind)
     const y = 180;
+    if (sp === 'basilisk') {
+      parts.push(`<path d="M0 ${y - 34} Q 140 ${y - 40} 300 ${y - 32} T 520 ${y - 36} L520 ${y} L0 ${y} Z" fill="#9ccfdc" stroke="#6fa9bb" stroke-width="2.5"/>`);
+      parts.push(`<path d="M40 ${y - 18} h46 M180 ${y - 22} h38 M330 ${y - 16} h52 M440 ${y - 24} h34" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity="0.7"/>`);
+    }
     parts.push(`<path d="M0 ${y} Q 130 ${y - 8} 260 ${y} T 520 ${y - 4} L520 ${H} L0 ${H} Z" fill="#cdb48a" stroke="#a78a5c" stroke-width="3"/>`);
     parts.push(`<g fill="#b39063" opacity="0.8"><ellipse cx="60" cy="${y + 16}" rx="16" ry="5"/><ellipse cx="190" cy="${y + 26}" rx="12" ry="4"/><ellipse cx="420" cy="${y + 18}" rx="18" ry="5"/></g>`);
     parts.push(`<g fill="#e8a45c" opacity="0.8"><path d="M120 ${y + 8} q 10 -8 22 0 q -10 8 -22 0z"/><path d="M460 ${y + 30} q 10 -8 22 0 q -10 8 -22 0z"/></g>`);

@@ -3,6 +3,9 @@
 // optional system: build(game) returns { group, update(dt, t), stats, ... }.
 //
 //   game.lizards.all                      the active lizards (near the player)
+//   game.lizards.guests                   lizards another system draws and moves (the
+//                                         basilisks): nearest, pick and forEachVisible
+//                                         take them in too
 //   game.lizards.nearest(pos, maxDist, filter)   hidden ones too; filter lz => lz.visible
 //   game.lizards.pick(ray, maxDist)       -> { lizard, point } or null (reused object);
 //                                            not through trunks and branches (drawn
@@ -231,6 +234,8 @@ export async function build(game) {
   const cand = new Int32Array(n); // spawns in reach this pass, sorted by score
   const weight = spawns.map((s) => (SPECIES_INFO[s.sp] ? SPECIES_INFO[s.sp].weight : 1));
   const all = [];
+  const guests = []; // filled by their own system each frame
+  const lists = [all, guests];
   const slots = [];
   for (let k = 0; k < ACTIVE + 4; k++) slots.push({ routes: [new Route(), new Route()] });
   let pinned = -1;
@@ -491,6 +496,7 @@ export async function build(game) {
     group,
     stats,
     all,
+    guests,
     speciesSummary: (sci) => {
       const sp = data.spawns.species && data.spawns.species[sci];
       return { records: sp ? sp.obs : 0, rarity: sp ? sp.rarity : null, perchCounts: { ...(perchBySp.get(sci) || {}) } };
@@ -537,7 +543,7 @@ export async function build(game) {
     // The nearest active lizard to pos within maxDist, optionally filtered.
     nearest(pos, maxDist = Infinity, filter = null) {
       let best = maxDist, out = null;
-      for (const lz of all) {
+      for (const list of lists) for (const lz of list) {
         if (lz.state === 'captured') continue;
         if (filter && !filter(lz)) continue;
         const dx = lz.pos.x - pos.x, dy = lz.pos.y - pos.y, dz = lz.pos.z - pos.z;
@@ -552,7 +558,7 @@ export async function build(game) {
     pick(ray, maxDist = 30, throughWood = false) {
       const o = ray.origin, d = ray.direction;
       let best = maxDist, bl = null;
-      for (const lz of all) {
+      for (const list of lists) for (const lz of list) {
         if (!lz.visible) continue;
         const L = lz.length, u = lz.upS;
         const cx = lz.pos.x + u.x * 0.05 * L, cy = lz.pos.y + u.y * 0.05 * L, cz = lz.pos.z + u.z * 0.05 * L;
@@ -587,7 +593,7 @@ export async function build(game) {
       camera.updateMatrixWorld();
       projView.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
       frustum.setFromProjectionMatrix(projView);
-      for (const lz of all) {
+      for (const list of lists) for (const lz of list) {
         if (!lz.visible) continue;
         sphere.center.set(lz.pos.x, lz.pos.y, lz.pos.z);
         sphere.radius = 0.5 * lz.length;

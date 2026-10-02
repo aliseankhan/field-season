@@ -217,6 +217,26 @@ Colours sampled from the October 2025 drone orthomosaic and given a gentle toon 
 - **Privacy:** lizard positions are jittered samples of field records, and each sits at
   least 0.2 m from every record. The file holds no ids, dates, times or record coordinates.
 
+## basilisks.json
+
+The brown basilisk sites, made by `preprocess/basilisks.py` from a basilisk sites file
+(`basilisk_sites.json`) made from the spring 2026 survey, which is already privacy-safe: each spring 2026 survey record
+was moved 0.2 to 0.6 m and kept at least 0.2 m from every record. Only positions are kept.
+
+- **sites:** 11, west to east. Fields:
+
+  | field | meaning |
+  | --- | --- |
+  | `x`, `z` | the site, as the source has it (to 0.01 m) |
+  | `home` | `[x, z]`: the nearest ground a basilisk can run on, where it rests |
+  | `water` | `[x, z]`: the nearest water, where it runs for |
+
+- `home` and `water` come as map pixels in the source (1/8 m from the map origin x -58,
+  z -45) and are turned into metres here, so they sit on a 0.125 m grid and can carry three
+  decimals.
+- The game moves each basilisk's resting spot a little: onto open ground the player can
+  reach, a few metres up from the water (src/wildlife/basilisk.js).
+
 ## stakes.json
 
 The survey's stake lattice, 220 stakes 5 m apart, from

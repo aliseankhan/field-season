@@ -1,10 +1,12 @@
-// Everything James says, in one place, so the lab can edit his lines without
+// Everything James (and Jon) says, in one place, so the lab can edit their lines without
 // touching the game. {name} is the player's name; other {words} are filled in
 // where the line is used (they are listed beside each one). A list of strings is
 // said one after another; a list of lists is a pool, one picked at a time.
 // Keep lines short, cheerful and in British spelling.
 
 export const JAMES = { name: 'James', role: 'Lead scientist' };
+// Jon, from the lab (src/story/jon.js): his lines are SCRIPT.jon.
+export const JON = { name: 'Jon', role: 'Lab member' };
 
 export const SCRIPT = {
   // The intro: James walks up to the field station, which the ibises raided overnight.
@@ -176,6 +178,7 @@ export const SCRIPT = {
       bark: 'Mornings, in the dappled light on the trunks.',
       knight: 'Mornings, basking high in the big trees.',
       croc: 'Basking on sunny banks, morning and late afternoon.',
+      basilisk: 'All day, out in the sun on open ground by the water.',
     },
     // hints for a species task that is still open: {species}
     tips: {
@@ -185,7 +188,10 @@ export const SCRIPT = {
       bark: 'Bark anoles are very rare here. Check the trunks slowly and creep right in.',
       knight: 'Look up into the big trees and spot one high in the canopy first.',
       croc: 'The crocodile is out there somewhere. Spot it, but keep your distance!',
+      basilisk: 'Brown basilisks rest on the ground by the water. Startle one and it runs right across the lake!',
     },
+    // on the radio the first time you see a basilisk run across the water
+    basiliskRun: 'That\'s why the anoles stay off the ground.',
     backpacksLeft: 'You\'ve got {n} backpacks left today. Save them for the big adults.',
     noBackpacks: 'That\'s all the backpacks for today. Nice tagging!',
     loggersDue: 'Some loggers are due a fresh download. Just walk past them, and your map shows where it\'s warm and cool.',
@@ -229,6 +235,14 @@ export const SCRIPT = {
       page: 'In the morning and late afternoon, lizards bask in the warm patches and show off more there. At midday they sit out the heat in the cool ones. Readings go stale after a few hours, so pass by again later.',
     },
     lastHour: 'Nearly time to pack up, {name}!',
+    // on the radio after a good run of catches, towards a field job not done yet today
+    // (flow.js, RULES.kitNudge): one line per job, the catching first, never a telling-off
+    kitNudge: {
+      tls: 'Cracking haul, {name}! When you fancy a change, the laser scanner\'s set up and ready. Pop by the station. No rush.',
+      drone: 'Loads of lizards today! The drone\'s charged if you want a go at the survey later. It\'s at the station.',
+      rtk: 'Lovely catching, {name}! If you fancy a break from lizards, the RTK rover\'s at the station for the plant survey.',
+      loggers: 'Brilliant run of lizards! When you\'re passing, walk by a flag and its temperature logger downloads by itself. Nearest one\'s on your map.',
+    },
     crocSnap: [
       ['Yikes! Give that crocodile some room.'],
       ['Ooh, close one! Stay back from the water\'s edge.'],
@@ -336,6 +350,103 @@ export const SCRIPT = {
     wholeDayAgain: '{nick} too! Another whole lizard day in the notebook.',
     // the notebook's "Followed lizards" page (not said aloud)
     page: 'Clip a button logger on a lizard\'s perch as you let it go, three a day. Walk past later and it downloads by itself: the perch\'s temperature, and what the lizard did all day.',
+  },
+
+  // Loops that snap and poles that break (src/catch/breaks.js), on the survey day. The lab
+  // rule: the first pole broken, of any kind, is free (he says so over the radio and a new
+  // one is in your hands). After that you walk back to him for one, and what he says
+  // depends on how it broke: up in the canopy mid-catch is fine, stubbing it is not.
+  breaks: {
+    free: 'First one\'s free. That\'s the rule.',
+    replace: {
+      canopy: 'In the canopy, mid-catch? That\'s the good way to break a pole.',
+      careless: 'Stubbed it on the ground, didn\'t you? Time to start thinking about your own abilities.',
+    },
+    // what the talk prompt says while you have no pole
+    askPrompt: '[E] Ask *James* for a new pole',
+    // (not James: what happens, as toasts and the hint)
+    fray: 'The floss is fraying!',
+    snapped: 'Oh no, your loop has *snapped*!',
+    // the tool badge until it is re-tied
+    toolSnapped: 'Loop snapped',
+    retieHow: 'Re-tie it before you loop again.',
+    retiePrompt: '[E] Re-tie the *floss loop*',
+    retied: 'Fresh loop on. Back to it!',
+    tangle: 'The pole\'s tangled in the branches!',
+    creak: 'Creak! Careful with that pole!',
+    stub: 'Thwack! Mind the pole.',
+    canopyBreak: 'Crack! The pole broke up in the branches.',
+    carelessBreak: 'Crack! The pole broke in half.',
+    newPole: 'A new pole is in your hands.',
+    goToJames: 'No pole. Walk back to James at the field station for a new one.',
+    toolLine: 'Pole broken: James has a spare',
+  },
+
+  // Jon, from the lab (src/story/jon.js), on the survey day. He just appears: nobody sees
+  // him arrive, and he is gone when you look back. Friendly and low-key. Every visit opens
+  // with hello (and the first one with meet as well), then the visit's own lines.
+  jon: {
+    hello: 'Oh, hey.',
+    meet: 'Oh, hey. I\'m Jon, from the lab. Didn\'t mean to make you jump.',
+    // the season's first snapped loop: he re-ties it, once (the loop goes back on with the
+    // second line)
+    retie: [
+      'Snapped? Give it here.',
+      'Over, under, through, snug. There you go.',
+      'Just the once, mind. Next one\'s yours.',
+    ],
+    // the first lock-on to each species: one short hint
+    hints: {
+      knight: 'Knights gape before they bite. If it opens its mouth at you, give it a moment.',
+      bark: 'Bark anoles go flat before they bolt. If it presses down on the bark, it\'s about to go.',
+      green: 'Greens like the leaves. Look out along the leafy branches, not just the trunks.',
+      brown: 'Browns stay low. Watch the ground and the bottom of the trunks.',
+      crested: 'Crested go round the trunk. If it slips round the back, step round slowly with it.',
+      basilisk: 'A basilisk! It\'ll make a dash for the lake. Get between it and the water.',
+    },
+    // the same hints, short, as a note with his portrait when he cannot come
+    notes: {
+      knight: 'Knights gape before they bite. Ease off.',
+      bark: 'Bark anoles go flat before they bolt.',
+      green: 'Greens like the leaves. Look along the leafy branches.',
+      brown: 'Browns stay low. Watch the ground.',
+      crested: 'Crested slip round the trunk. Step round slowly.',
+      basilisk: 'A basilisk makes for the water. Get between it and the lake.',
+    },
+    // a long while with no catch (once a day): sun and shade by the time of day
+    // (species.js thermalPhase: morning, midday, afternoon)
+    nudge: {
+      morning: 'Quiet one? They\'re still warming up. Try the trunks where the sun hits.',
+      midday: 'Bit slow? It\'s too hot out in the open now. Try the shady side of the big trees.',
+      afternoon: 'Slow going? It\'s cooling off, so they\'re back out in the late sun. Try the sunny trunks.',
+    },
+    // all five GPS backpacks fitted: two spares, once that day ({n}: how many, in words; the second line
+    // goes with them)
+    spares: [
+      'All five backpacks on already? Nice work.',
+      'Here, {n} spares. Same as mine. It\'s how I always know where you are.',
+    ],
+    // (not Jon: the toast as the spares go in your bag)
+    sparesToast: '+{n} GPS backpacks from Jon',
+    // the spares as a note, when he cannot come ({n} in words)
+    sparesNote: 'All five on already? I\'ve left {n} spares in your case.',
+    // as a GPS backpack is about to go on, when today's are piling up on one species or in
+    // one part of the island (once per species and per area a day). species: {species} is
+    // this one, {others} the ones that would tell us more (anyOther when every species has
+    // one); area: {here} and {there} by the part of the island (mid is round the lawn).
+    // Then the choice, letting it go the default.
+    steer: {
+      species: 'Another {species}? We\'ve got loads of those on the go. {others} would tell us more.',
+      basilisk: 'Another basilisk? We\'ve got {n} on the go already, and there are only eleven. {others} would tell us more.',
+      anyOther: 'A different species',
+      area: 'These are all from {here}. {there} would give us a better spread.',
+      here: { mid: 'round the lawn', north: 'the north end', south: 'the south end', east: 'the east side', west: 'the west side' },
+      there: { mid: 'somewhere out by the shore', north: 'the south end', south: 'the north end', east: 'the west side', west: 'the east side' },
+      letGo: 'Let it go',
+      fit: 'Fit it anyway',
+      // who the word is from when it comes as a note
+      noteFrom: 'Note from Jon',
+    },
   },
 
   // His catchphrase. Kept for the two big send-offs only (the start of the kit hunt and

@@ -513,6 +513,22 @@ with it whenever the day is deleted, so the old script's `--remove-name` and `--
 leave none behind, and the new server tidies away any it finds on start), or restore the
 dated copy with the server stopped.
 
+## Updating a board that is already live (the basilisks)
+
+This version puts the brown basilisk on the board: a species count of its own, and the
+rarest catch of all. The server makes a dated copy beside the database the first time it
+opens it (`{STATE_DIR}/scores-before-basilisk-YYYYMMDD-HHMMSS.db`, or `-before-steady-` when
+the update above is still to do too), then adds a `basilisk` column. Every day already there
+keeps its numbers, with no basilisk. Update the server before the game, as above:
+
+    sudo install -m 644 ~/staging/field-season-dist/server/scoreboard_server.py {APP_DIR}/
+    sudo systemctl restart field-season-board
+    journalctl -u field-season-board -n 5        # "brought the database up to date for basilisks ..."
+
+Until the server is updated it refuses a day with a basilisk in it; days without one post
+as before (a notebook holding the "Water runner" stamp goes up without that stamp). Older
+copies of the game keep working: a day sent without a basilisk count has none.
+
 ## Without sudo
 
 Only the board server can run without sudo; the game's folder (step 1) and the nginx

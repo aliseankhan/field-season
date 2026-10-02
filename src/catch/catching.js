@@ -13,6 +13,7 @@
 //   lizard:measured { lizard, svl }  lizard:marked { lizard, colour }  lizard:tagged { lizard, colour, svl }
 //   lizard:released { lizard }  pole:aim { on }  pole:whiff { lizard, why }  pole:bop { lizard }
 //   practice:done { lizard }  (the opening's practice catch: no points, no counts)
+//   and breaks.js's loop:fray, loop:snap, loop:tied, pole:stub, pole:creak, pole:break, pole:new
 //
 // In the opening only the practice lizard (practice.start(index)) can be caught; the
 // rest can be spotted. A very rare lizard forgives one missed snug a day.
@@ -23,16 +24,18 @@
 // screenshot, &catchstep=auto plays it all through. The cards also open on their own
 // with a stand-in lizard: ?open=minigame:bag|ruler|paint|backpack|perch.
 //
-// game.catching: { loopPole, timing, spotter, startCatch(lizard, info, opts), busy, step,
+// game.catching: { loopPole, timing, spotter, breaks (breaks.js), startCatch(lizard, info, opts), busy, step,
 // practice: { start(), stop(), lizard }, pointOut(species, maxDist) (the survey day's
 // first lizard, pinned; pointOut(null) lets it go), download(entry), stats, play } where play is
 // for scripted tests: catchNearest(species, 'perfect' | 'good' | 'early' | 'late') ->
-// Promise of the result, goTo(species) -> the lizard, aim(on), lock(lizard). Numbers
+// Promise of the result, goTo(species) -> the lizard, aim(on), lock(lizard), fixNow()
+// (the tagged lizards' fixes for the clock as it is). Numbers
 // are in tuning.js.
 //
 // Tagged lizards: state.tracked entries get a nickname, and their backpack logs a GPS
 // fix every CATCH.track.fix seconds of the survey day into entry.fixes ([x, z] pairs,
-// 0.5 m grid, a wander round the perch). The maps draw entry.trail, the fixes downloaded
+// 0.5 m grid, a wander round the perch; a basilisk's day by the water from its own
+// trailAt, basilisk.js). The maps draw entry.trail, the fixes downloaded
 // so far: the first at the fitting, the rest when the player downloads them with the
 // GPS case (tools/backpacks.js calls download(entry)). Kept in memory only.
 
@@ -44,14 +47,15 @@ import { state, addScore, GAME_FLAGS, perchHeight, nextBackpackColour, dayKey, h
 import { catchPoints, RULES } from '../game/rules.js';
 import { registerTool, current, equip } from '../tools/ring.js';
 import { vegUniforms } from '../world/wind.js';
-import { CATCH, CATCH_POINTS, SPECIES_NAMES, PERCH_WORDS, NICKNAMES, perchSeen } from './tuning.js';
+import { CATCH, CATCH_POINTS, SPECIES_NAMES, PERCH_WORDS, NICKNAMES, perchSeen, trueSvl } from './tuning.js';
 import { LoopPole } from './loop_pole.js';
 import { SnugTiming } from './timing.js';
 import { Spotter } from './spotting.js';
+import { buildBreaks } from './breaks.js';
 import { runRelease, standIn, bagCard, rulerCard, paintCard, packCard, perchCard } from './release.js';
 
 // the notebook's species keys
-export const SHORT = { cristatellus: 'crested', sagrei: 'brown', carolinensis: 'green', distichus: 'bark', equestris: 'knight' };
+export const SHORT = { cristatellus: 'crested', sagrei: 'brown', carolinensis: 'green', distichus: 'bark', equestris: 'knight', basilisk: 'basilisk' };
 const LONG = Object.fromEntries(Object.entries(SHORT).map(([k, v]) => [v, k]));
 const DISPLAY_STAMP = { headbob: 'Head bob!', pushup: 'Push-up!', dewlap: 'Dewlap!' };
 const DISPLAY_WORD = { headbob: 'mid head bob', pushup: 'mid push-up', dewlap: 'mid dewlap' };
@@ -71,16 +75,6 @@ const VERY_RARE = new Set(['distichus', 'equestris']);
 const params = new URLSearchParams(location.search);
 const pick = (list) => list[Math.floor(Math.random() * list.length)];
 const common = (sp) => (SPECIES_NAMES[sp] ? SPECIES_NAMES[sp].common : sp);
-
-// A lizard's true snout-vent length (mm), the same every time for the same lizard.
-function trueSvl(lz) {
-  const r = CATCH.svl[lz.species] || CATCH.svl.cristatellus;
-  const range = lz.sex === 'm' ? r.m : r.f;
-  let s = ((lz.index + 1) * 2654435761) >>> 0;
-  s = (s ^ (s >>> 15)) >>> 0; s = Math.imul(s, 0x2c1b3c6d) >>> 0; s = (s ^ (s >>> 12)) >>> 0;
-  const u = (s % 10000) / 10000;
-  return Math.round(range[0] + (range[1] - range[0]) * u);
-}
 
 export async function build(game) {
   const cssId = 'catch-css';
@@ -138,6 +132,7 @@ export async function build(game) {
   });
   const timing = new SnugTiming(game);
   const spotter = new Spotter(game, { onSpot, onCroc, dayKey });
+  const breaks = buildBreaks(game, loopPole);
 
   // How blocked a view is, for the aim camera's choice of shoulder: bushes, trunks and
   // low foliage along the near 80 % of the line from the camera spot to the target
@@ -192,6 +187,7 @@ export async function build(game) {
   registerTool({
     id: 'loop_pole', name: 'Loop pole', icon: 'loop_pole', key: 1, pose: 'pole', order: 1,
     suggestFor(ctx) {
+      if (breaks.snapped) return flow.busy ? null : breaks.offer(); // re-tie the loop first
       if (loopPole.aiming || flow.busy || !game.lizards) return null;
       const pl = game.player, p = pl.position;
       // in the opening, only the practice lizard (from a little further off)
@@ -301,19 +297,22 @@ export async function build(game) {
       if (cr && 'enabled' in cr) cr.enabled = false;
     } else if (!on && held) {
       pl.hold('catch', false);
+      pl.tow = null; // (a basilisk's pull ends with the catch)
       if (cr && held.croc !== null) cr.enabled = held.croc;
       held = null;
     }
   }
 
   async function startCatch(lz, info = {}, opts = {}) {
-    if (flow.busy || !lz) return null;
+    // (not while the loop frays or the pole creaks: what that leads to lands first)
+    if (flow.busy || !lz || breaks.snapped || breaks.noPole || breaks.busy) return null;
     flow.busy = true;
     flow.lizard = lz;
     try {
       return await catchFlow(lz, info, opts);
     } catch (e) {
       recordError(e, 'catch');
+      lz.unfreeze(); // (only if it was still held)
       return null;
     } finally {
       loopPole.letGo();
@@ -371,6 +370,13 @@ export async function build(game) {
       return { success: false, cancelled: true };
     }
     if (!res.success) {
+      // a miss may snap the floss loop, or tangle the pole high in the branches (breaks.js):
+      // it frays or creaks while the loop is still on the lizard, then goes
+      const fate = prac ? null : breaks.fate(lz);
+      if (fate) await breaks.tell(fate, lz);
+      // (a snapped loop goes there and then, with the pole still up; a tangled pole once
+      // the miss has played out)
+      if (fate === 'snap') breaks.apply(fate, lz, res.early ? 'early' : 'late');
       await loopPole.snap(false);
       loopPole.letGo();
       lz.unfreeze();
@@ -382,7 +388,20 @@ export async function build(game) {
       const line = lz.species === 'equestris' && Math.random() < 0.7 ? pick(MISS.knight) : pick(res.early ? MISS.early : MISS.late);
       kit.toast(line.replace('{common}', common(lz.species)) + ' ' + pick(MISS.after), { icon: 'lizard', tone: 'warn', ms: 3600 });
       events.emit('lizard:escaped', { lizard: lz, why: res.early ? 'early' : 'late' });
-      return { success: false, early: res.early };
+      if (fate === 'canopy') breaks.apply(fate, lz, res.early ? 'early' : 'late');
+      return { success: false, early: res.early, fate };
+    }
+
+    // a basilisk bolts for the water as the loop draws tight: the player steers it away
+    // (basilisk.js); if it gets there it runs off across the water
+    if (lz.sprint) {
+      flow.step = 'sprint';
+      const held = await lz.sprint({ steer: opts.steer || (opts.auto ? 'away' : null) });
+      if (!held) {
+        loopPole.letGo();
+        events.emit('lizard:escaped', { lizard: lz, why: 'water' });
+        return { success: false, water: true };
+      }
     }
 
     // the snap: the loop draws tight and the pole lifts it off its perch
@@ -434,6 +453,9 @@ export async function build(game) {
       if (display) kit.stamp(DISPLAY_STAMP[display], { tone: 'gold', icon: 'star' });
     }
     if (tag.tracked) chips.push(['Wearing its backpack', 'info']);
+    // a basilisk is sexed by its crest (no dewlap to go by)
+    const basilisk = lz.species === 'basilisk';
+    if (basilisk && !recapture) chips.push([lz.sex === 'm' ? 'Tall crest: a male' : 'Small crest: a female', 'info']);
 
     // the release cards
     const packsLeft = state.inventory.backpacks;
@@ -458,6 +480,11 @@ export async function build(game) {
       marked(q) {
         tag.mark = c.mark;
         events.emit('lizard:marked', { lizard: lz, colour: c.mark, quality: q });
+      },
+      // Jon may have a word first on where today's backpacks are going (jon.js)
+      beforePack() {
+        const J = game.story && game.story.jon;
+        return J && J.steer ? J.steer(lz) : true;
       },
       tagged() {
         lz.setBackpack(c.packColour);
@@ -497,7 +524,8 @@ export async function build(game) {
     }
     events.emit('lizard:released', { lizard: lz });
     const where = lz.perch === 'ground' ? 'spot on the ground' : PERCH_WORDS[lz.perch] || 'perch';
-    kit.toast(out.skipped ? `Let go. Back to its ${where} it runs!` : `All done! Back to its ${where} it goes.`, { icon: 'heart', tone: 'good' });
+    if (basilisk) kit.toast(out.skipped ? 'Let go. Off it sprints for the water!' : 'All done! Off it sprints for the water.', { icon: 'heart', tone: 'good' });
+    else kit.toast(out.skipped ? `Let go. Back to its ${where} it runs!` : `All done! Back to its ${where} it goes.`, { icon: 'heart', tone: 'good' });
     return { success: true, points, ...out };
   }
 
@@ -593,6 +621,7 @@ export async function build(game) {
   // ---------------------------------------------------------------- per frame
 
   let fixT = 0;
+  const fixAt = { x: 0, z: 0 };
   function gpsFixes(dt) {
     if (state.phase !== 'survey') return;
     fixT -= dt;
@@ -603,9 +632,13 @@ export async function build(game) {
       const lz = tr.lizard;
       if (!lz || !lz.pos) continue;
       if (!Array.isArray(tr.fixes)) tr.fixes = [];
-      const w = WANDER[lz.species] || 2, s = (lz.index % 97) * 0.37;
-      const x = lz.pos.x + w * (0.6 * Math.sin(hours * 1.3 + s) + 0.4 * Math.sin(hours * 3.1 + s * 2));
-      const z = lz.pos.z + w * (0.6 * Math.cos(hours * 1.1 + s * 1.7) + 0.4 * Math.sin(hours * 2.3 + s));
+      let x, z;
+      if (lz.trailAt) ({ x, z } = lz.trailAt(hours, fixAt)); // a basilisk's day by the water (basilisk.js)
+      else {
+        const w = WANDER[lz.species] || 2, s = (lz.index % 97) * 0.37;
+        x = lz.pos.x + w * (0.6 * Math.sin(hours * 1.3 + s) + 0.4 * Math.sin(hours * 3.1 + s * 2));
+        z = lz.pos.z + w * (0.6 * Math.cos(hours * 1.1 + s * 1.7) + 0.4 * Math.sin(hours * 2.3 + s));
+      }
       const gx = Math.round(x / grid) * grid, gz = Math.round(z / grid) * grid;
       // the last fix logged, or the last one on the map when nothing is waiting
       const list = tr.fixes.length ? tr.fixes : tr.trail || tr.fixes;
@@ -654,9 +687,12 @@ export async function build(game) {
   const poleCtx = { equipped: false, busy: false };
   let framed = false;
   function update(dt, t) {
-    poleCtx.equipped = current() === 'loop_pole';
-    poleCtx.busy = uiBusy() || (flow.busy && !loopPole.hold);
+    // (a pole with its loop snapped stays down until it is re-tied, once it has come down,
+    // and never before the catch has let go of the loop)
+    poleCtx.equipped = current() === 'loop_pole' && (!breaks.snapped || breaks.settling || !!loopPole.hold);
+    poleCtx.busy = uiBusy() || (flow.busy && !loopPole.hold) || breaks.snapped;
     loopPole.update(dt, t, poleCtx);
+    breaks.update(dt, flow.busy);
     // the camera stays on the catch while the cards are up, then eases back
     const rig = game.rig;
     if (rig && flow.busy) { rig.aim = 1; rig.aimPoint = loopPole.framePoint; framed = true; }
@@ -813,6 +849,8 @@ export async function build(game) {
       return i == null ? null : goTo(i);
     },
     aim(on = true) { loopPole.forceAim = !!on; },
+    // logs the tagged lizards' fixes for the clock as it is now (a scripted day moves the clock on)
+    fixNow() { fixT = 0; gpsFixes(0); },
     lock(lz) { loopPole.forceLock = lz || null; },
     get busy() { return flow.busy; },
   };
@@ -822,7 +860,7 @@ export async function build(game) {
   return {
     group: loopPole.group,
     update,
-    loopPole, timing, spotter, play, practice, download,
+    loopPole, timing, spotter, breaks, play, practice, download,
     startCatch, pointOut,
     get busy() { return flow.busy; },
     get step() { return flow.step; },

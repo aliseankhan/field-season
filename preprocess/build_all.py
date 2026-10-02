@@ -9,6 +9,7 @@ folder, and stops at the first one that fails:
     spawns.py         data/spawns.json      (reads terrain, placements and colliders)
     stakes.py         data/stakes.json      (the stake lattice; reads terrain, placements and colliders)
     scanpos.py        data/scanpos.json     (the laser scanner's positions; reads terrain, placements and colliders)
+    basilisks.py      data/basilisks.json   (the brown basilisk sites, from the spring survey)
     check_figure.py   check/preprocess_check.png and preprocess_check_detail.png
                       (reads every file in data/)
 
@@ -31,7 +32,7 @@ GAME = Path(__file__).resolve().parents[1]
 PRE = GAME / "preprocess"
 DATA = GAME / "data"
 
-STEPS = ["terrain.py", "placements.py", "palette.py", "spawns.py", "stakes.py", "scanpos.py", "check_figure.py"]
+STEPS = ["terrain.py", "placements.py", "palette.py", "spawns.py", "stakes.py", "scanpos.py", "basilisks.py", "check_figure.py"]
 BUDGET_BYTES = 4 * 1024 * 1024
 
 

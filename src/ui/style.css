@@ -445,6 +445,15 @@ body.ui-on #ui > .hud-line {
   font-size: 0.8em;
   font-weight: 600;
 }
+.hud-tool.is-snapped .hud-tool-badge {
+  background: #ffd2bf;
+  border-color: var(--coral-deep);
+  color: var(--coral-deep);
+}
+.hud-tool.is-snapped .hud-tool-text small {
+  color: var(--coral-deep);
+  font-weight: 800;
+}
 .hud-tool-count {
   margin-left: 0.2em;
   padding: 0.1em 0.5em;
@@ -832,6 +841,20 @@ body.ui-card-open .hud-jobs {
   width: 1.2em;
   height: 1.2em;
 }
+.ui-toast-icon.is-portrait {
+  width: 2.7em;
+  height: 2.7em;
+  margin: -0.25em 0;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 40%, #e6f6d6, #bfe6a0);
+  border: 0.13em solid var(--leaf-deep);
+}
+.ui-toast-icon.is-portrait svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.ui-toast.tone-info .ui-toast-icon.is-portrait { background: radial-gradient(circle at 50% 40%, #e6f6d6, #bfe6a0); }
 .ui-toast.tone-good { border-color: #9fd67d; }
 .ui-toast.tone-gold { border-color: var(--gold); background: #fffbe6; }
 .ui-toast.tone-gold .ui-toast-icon { background: #ffe89a; color: #a7700c; }

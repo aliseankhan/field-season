@@ -76,6 +76,7 @@ export const CATCH = {
       carolinensis: { time: 1.28, band: 0.12, rounds: 1 },
       distichus: { time: 0.98, band: 0.11, rounds: 1, slip: true },
       equestris: { time: 1.2, band: 0.105, rounds: 2, second: 0.95, slip: true },
+      basilisk: { time: 1.05, band: 0.1, rounds: 1, slip: true }, // (provisional)
     },
   },
   // Snout-vent length in mm (adults, by sex), and the smallest that can carry a
@@ -86,6 +87,7 @@ export const CATCH = {
     carolinensis: { m: [50, 68], f: [42, 54], pack: 46 },
     distichus: { m: [40, 52], f: [35, 44], pack: 40 },
     equestris: { m: [140, 186], f: [118, 152], pack: 100 },
+    basilisk: { m: [110, 170], f: [90, 130], pack: 90 }, // (provisional; every adult takes a backpack)
   },
   // Tagged lizards: a GPS fix every `fix` s of play, the trail kept to `keep` fixes.
   track: { fix: 6, keep: 80, grid: 0.5 },
@@ -112,8 +114,19 @@ export const SPECIES_NAMES = {
   carolinensis: { common: 'green anole', sci: 'Anolis carolinensis' },
   distichus: { common: 'bark anole', sci: 'Anolis distichus' },
   equestris: { common: 'knight anole', sci: 'Anolis equestris' },
+  basilisk: { common: 'brown basilisk', sci: 'Basiliscus vittatus' },
   crocodile: { common: 'American crocodile', sci: 'Crocodylus acutus' },
 };
+
+// A lizard's true snout-vent length (mm), the same every time for the same lizard.
+export function trueSvl(lz) {
+  const r = CATCH.svl[lz.species] || CATCH.svl.cristatellus;
+  const range = lz.sex === 'm' ? r.m : r.f;
+  let s = ((lz.index + 1) * 2654435761) >>> 0;
+  s = (s ^ (s >>> 15)) >>> 0; s = Math.imul(s, 0x2c1b3c6d) >>> 0; s = (s ^ (s >>> 12)) >>> 0;
+  const u = (s % 10000) / 10000;
+  return Math.round(range[0] + (range[1] - range[0]) * u);
+}
 
 // The recorded perch classes, as a field notebook would put them.
 export const PERCH_WORDS = {

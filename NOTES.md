@@ -70,12 +70,15 @@ Ctrl or C descend, Shift faster, X flies it home; the normal ones come back when
     src/wildlife/croc_fx.js the wake, splash rings and the "!" and "SNAP!" signs, one draw call
     src/wildlife/croc_sites.js  swim grid, A* routes and haul-out spots (plain JS, runs in node)
     src/wildlife/croc_gallery.html  the crocodile's poses
+    src/wildlife/basilisk.js  the brown basilisks (build(game)): the day's few at their sites, the run across the water, the bolt on the loop, a backpacked one's GPS day
+    src/wildlife/basilisk_model.js  the basilisk's skinned mesh, its outline, its poses and its GPS backpack
     src/game/rules.js       every number the field season plays by (RULES) and catchPoints()
     src/game/state.js       the state object, phases, the day's clock, score, save and load, URL flags (GAME_FLAGS)
     src/game/tasks.js       research tasks per species, the set-up jobs and field work, stamps
     src/game/daylog.js      the survey day's own notes (state.today.diary) and daySnapshot(), the notebook that goes up with a day
-    src/story/script.js     everything James says (edit his lines here)
-    src/story/james.js      James: model, idles, walk, wave, talk, the bag held up to the light
+    src/story/script.js     everything James and Jon say (edit their lines here)
+    src/story/james.js      James: model, idles, walk, wave, talk, the bag held up to the light (the rig Jon shares)
+    src/story/jon.js        Jon from the lab: his model on James's rig, appearing and going out of view, his four jobs
     src/story/flow.js       the story system (game.story): title, intro, the opening, survey day, summary
     src/story/kit_hunt.js   the opening's kit hunt: the raided station's mess, the five scattered pieces, the pop-up card, the ibis with the pens
     src/story/practice.js   picks the practice anole by testing the real world (a clear straight creep from a path, in view from the creep camera)
@@ -91,12 +94,15 @@ Ctrl or C descend, Shift faster, X flies it home; the normal ones come back when
     src/tools/backpacks.js, tape.js  the GPS backpacks case and the tape measure
     src/catch/catching.js   catching (game.catching): the loop pole on the ring, spotting, the catch flow, GPS fixes
     src/catch/loop_pole.js  the raised pole, lock-on (the loop finds the lizard in reach), Precise aiming (the loop on the pointer), reach, startles
+    src/catch/breaks.js     floss loops that snap and loop poles that break (game.catching.breaks), the re-tie, the lab rule
+    src/catch/snap_fx.js    a snapped loop's strands and burst at the pole tip
     src/catch/timing.js     snug the loop: the shrinking ring round the head
     src/catch/release.js    the catch-and-release cards: bag, ruler, paint pen, backpack, perch note
     src/catch/spotting.js   hold the aim on a lizard (or the crocodile) to spot it
     src/catch/tuning.js     the catch's own numbers (reach, startle, timing, sizes); its points come from RULES
     src/catch/drawings.js, catch.css  the cards' SVG anoles and styles
     preprocess/stakes.py    data/stakes.json from the stake lattice
+    preprocess/basilisks.py data/basilisks.json from the spring survey's privacy-safe basilisk sites
     models.html             gallery of every procedural model (landmarks, plants, mounds, perches, props)
     tools/serve.py          no-cache static server
     tools/shot.py           headless Chrome screenshots and DOM dumps
@@ -417,6 +423,99 @@ and `game.croc`, its group joins the scene and its `update` runs after the veget
   clear, and no spot can cut off walkable ground. A croc wedged against a bank drifts
   back to the middle of its swim cell and finds a new way; a spot it cannot reach is
   left alone for 5 minutes.
+- **Brown basilisks** (`src/wildlife/basilisk.js`, `game.basilisks`, after the crocodiles in
+  `OPTIONAL_SYSTEMS`; `?nobasilisks=1` skips them). The 11 sites of `data/basilisks.json`;
+  on each survey day 4 of them have a basilisk (`BASILISK.roster`, drawn from `makeRng` seeded
+  by `?basiliskseed=n` or the clock, and the day's number; `?basilisks=all` puts one at every
+  site, in any phase). Survey day only otherwise. Each site keeps one individual all session:
+  its sex from its own seed, its SVL from the provisional ranges (`CATCH.svl.basilisk`,
+  `trueSvl`) and its drawn size from that (170 mm is the model's size). It rests on open
+  walkable ground, 0.4 m clear of every trunk and bush, 2.4 to 4.5 m up from the water within
+  7 m of its home (so there is room to come between it and the water). Sites 5 and 8 are well
+  inland, with no such ground near their homes: those two rest on the nearest open ground
+  and dash 16 and 21 m to the water, so on the loop they tire before they get there. Once
+  caught, either settles by the water it ran for (`shore`: such ground within 8 m of where it
+  runs in), so its GPS fixes, its perch logger and where it rests from then on agree; a new
+  season (`state:reset`) puts it back. It runs
+  for the nearest water (its entry, 0.4 m clear of land), round any trunk or bush in the way,
+  and across it to the landing worked out at load: the far bank or a mud islet (land that is
+  not the island's open ground) after at least 3 m of water, from a fan of headings round
+  straight on, about 7 m of water if it can. Startled (a player walking at it inside
+  `BASILISK.fid` 3.6 m, times the anoles' `noiseFactor`: about 2.1 m creeping, 7.9 m running,
+  and 1.3 times further while it watches; jogging within 7 m), it runs on four legs for 0.3 s,
+  rears up and sprints on two at 4 m/s, then runs across the water at 3.3 m/s, a splash
+  (`fx.burst('splash')`, not with reduced motion) at each footfall and `basilisk:patter` every
+  0.16 s for its sound; the ground and log anoles within 5 m of it bolt for cover
+  (`lz.bolt`). It waits on the far side 35 to 70 s and goes home once it and its home are out
+  of view and the player is 12 m off. Watched running on the water for 0.6 s (in view, within
+  40 m) it emits `basilisk:waterrun` { basilisk, first } and a quiet `lizard:spotted`; the
+  season's first brings James's radio line (`SCRIPT.survey.basiliskRun`, flow.js). It watches
+  a moving player from 1.6 times its flight distance, settles after 2.2 s of a still one
+  (each time a little bolder) and head bobs now and then (`lizard:display`).
+  - *To the catch* each one is a lizard (`game.lizards.guests`: `pick`, `nearest` and
+    `forEachVisible` take them in, and the loop pole's lock-on, Precise aiming and startles
+    look through them too): species `'basilisk'`, perch and surface `'ground'`, `state`,
+    `visible`, `display`, `tag`, `length` (0.6 times its scale: the body, not the tail),
+    `headPosition(v)` from its pose, `freeze()`, `unfreeze()`, `capture()`, `release(x, y,
+    z)` (it sprints off for the water) and `bolt()`.
+  - *On the loop* (`sprint(opts)`, which `catching.js` awaits after a good snug and before the
+    lift): it runs for the water at 1.6 m/s but shies from the player, so a player stood
+    between it and the water turns it inland (Jon's hint); [A] and [D] (the move stick's x)
+    push it across the view at 3.4 rad/s against its 1.7 rad/s turn for the water, and the
+    player is pulled along behind on a 2.2 m tether (`player.tow`, a velocity Player.update
+    uses while held). Heading away from the water tires it; 2.2 s of that (or 9 s in all) and
+    the lift goes ahead. With the water within 1.8 m ahead (about 1.1 s at its pace) the tell
+    shows ("Nearly at the water! Pull it round!"), and it can only reach the water once the
+    tell has been up 0.6 s: then the loop slips, `lizard:escaped` { why: 'water' } and it runs
+    off across the water. While the water is that near, [A] and [D] turn it about its own side
+    (the way the push across the view first turned it) at 1.6 times the rate, so a firm pull
+    can bring it right round, even where the shore bends; steering within about 0.4 s of the
+    tell saves the catch from the land side. Once the water is no longer ahead the tell
+    drains (from at most 0.6 s) at half the rate it built up.
+    Scripted catches steer with `opts.steer` ('away' or 'none'; `auto` catches steer away).
+    A missed snug is as for an anole (the snap and break odds, then it bolts).
+  - *The work-up*: the bag, ruler (the knight's scale), paint pen, the GPS backpack, perch
+    notes and the perch logger, as for an anole. The bag card's chip says the crest's word on
+    its sex ("Tall crest: a male"). Points as the rarest anoles (`RULES.rarity.basilisk`, very
+    rare).
+  - *GPS backpacks.* Every adult takes one (`CATCH.svl.basilisk.pack` 90 mm), from the same
+    case and through the same card ("Settle it on its back"), and Jon's word on the
+    backpacks' spread counts basilisks as a species of their own (`SCRIPT.jon.steer.basilisk`,
+    "Another basilisk? We've got two on the go already, and there are only eleven."). The
+    pack (`setPack(colour)` in basilisk_model.js) is the anoles' shape at the basilisk's size,
+    on the spine bone in the middle of the back, on two straps round its middle; it scales
+    with the basilisk and is hidden until fitted. A tagged basilisk's fixes come from
+    `trailAt(hours)` (catching.js asks it in place of the anoles' wander round the perch), a
+    made-up day worked out once per basilisk (`trailOf`, on the fixes' 0.5 m grid): up and
+    down a stretch of shore and lawn edge near its rest spot (open walkable ground 0.8 to 4 m
+    from the water, one spot a metre along the shore, gaps of 2 m at most, within 9 m), the
+    shadiest such spot within 8 m (up to 6 m from the water) from about 11:40 to 14:15, and a
+    dash across the water to a far bank or islet and back in the morning and the afternoon
+    (half an hour, the middle half on the far side: the nearest dry spot within 6 m of where
+    its run lands that is off the island's open ground, out of the thicket and at least 3 m
+    of water (`TRAIL.wet`) from the shore it leaves, so its line on the map crosses the water;
+    else the same for a run from a fan of headings at most 12 m long; 6 of the 11 sites have
+    one, 1, 2, 7, 8, 9 and 10, and the other 5 never dash). Never in the thicket; a site well
+    inland (5 and 8) walks the shore by the water it runs for, where it settles once caught.
+    The maps, the tracked page, the GPS case, the perch logger's story and the day notebook
+    take it as an anole's trail.
+  - *Perch loggers*: clipped beside its rest spot by the water (an inland one's too, by
+    then; the home is ground, `SURF.GROUND`), with the lake behind it in the card's and the
+    life story's drawing; its day is read by the rules (`derivedCode`, it has no brain), and
+    while the player visits a ready logger it is calm as the anoles are (only a run bolts
+    it).
+  - *Model* (`basilisk_model.js`): one `SkinnedMesh` on 19 bones and its outline, the
+    geometry made once per sex with `mergeParts` (james.js). Olive brown, two pale stripes a
+    side painted on latitude rings (eye to hip, lip to shoulder), a banded whip tail, long
+    hind legs and toes, big eyes; a male's tall swept head crest and low back and tail crests,
+    a female's small head crest. `pose(P, t)` takes pitch, hip height, splay, gait (0 still, 1
+    four legs, 2 two legs), phase and stride, head pitch and yaw, tail lift and sway. A
+    bounding sphere covers every pose, so it is culled out of view.
+  - *Random draws*: every mesh, bone texture and the group are made at load with
+    `Math.random` pointed at a local source for the moment (three.js takes object ids from
+    it), and every draw of theirs comes from `makeRng`, so the island draws the same numbers
+    with them as without; the update reads the camera's matrices as last drawn and never
+    updates them.
 
 ## Effects
 
@@ -1005,7 +1104,7 @@ measure the temperature a lizard actually lives in.
     damaged or read-only). `GET scores?board=best|species|rarest|backpacks&limit=1..50` (digits
     only) -> `{ rows, total, names }`, each row with `rank` and `tie` (a shared number shares the
     rank). `POST scores` { name, score, species: { cristatellus, sagrei, carolinensis, distichus,
-    equestris }, backpacks, rarest, stars, version } -> 201 { ok, rank, tie, total (the name's
+    equestris, basilisk }, backpacks, rarest, stars, version } -> 201 { ok, rank, tie, total (the name's
     standing, from its best day), best (is this day that best), day { rank, tie } (where this day
     alone would stand), ranks, ties, bests (per board), board (the top ten), you (the name's best
     row), today (this day's row) }.
@@ -1014,10 +1113,18 @@ measure the temperature a lizard actually lives in.
     l, ħ as h) and reads digits as letters only inside a word ("sh1t" and "N4Z1" refused, "Room
     455" kept); "shit" counts only as a word of its own and "cunt" only at a word's start, so
     Harshit, Nishita, Shital, Kshitij, Scunthorpe and Shiitake pass. Plain integers inside one
-    day's caps (`DAY`: 60 catches at most, 10 knight, 12 bark, 25 green, 40 brown, 60 crested; 5
-    backpacks; 9 stars) and a score cap from the game's points (`score_cap(counts, backpacks)`:
-    about 6,500 plus what those catches and backpacks can earn; the constants at the top of the
-    server must follow `RULES.points`); `rarest` must match the counts.
+    day's caps (`DAY`: 60 catches at most, 10 knight, 12 bark, 25 green, 40 brown, 60 crested,
+    11 basilisks; 5 backpacks, basilisks' included; 9 stars) and a score cap from the game's
+    points (`score_cap(counts, backpacks)`: about 6,700 plus what those catches and backpacks
+    can earn, a basilisk at 100 like the knight and bark; the constants at the top of the
+    server must follow `RULES.points`); `rarest` must match the counts. The basilisk is the
+    rarest (11 records against the knight's 27), so it heads Rarest catch: it ranks 0, below
+    the knight's 1, so the ranks stored with older days stay right. A post may leave
+    `basilisk` out (copies of the game from before it send five anoles): none, and those days
+    validate, show and sort as before. The game itself sends `basilisk` only when it caught
+    one, so a day without one still goes up to a board from before the basilisks. Most
+    species goes up to 6, and the day notebook's catches, followed lizards, trails and stamps
+    (`basilisk.catch`, `basilisk.water`) take the basilisk too.
   - Parameterised SQL; ranking done in SQL (window functions) with one index per board, each
     board cached and cut to the length asked for (at 20,000 rows a post takes about 55 to 78 ms
     and an uncached board read about 30 ms).
@@ -1158,18 +1265,27 @@ others to read. Sharing stays low-key.
   day just posted, so there are never more than about 4,200 (`Board.keep_top`). Upkeep
   adds `--drop-photo NAME` (the aerial photo out of that name's notebooks) and
   `--remove-notebook KEY` (`--show` prints the keys).
-- *Migration.* A database without the `mode` column or the `notebooks` table is brought up
-  to date on the first connection that can write (so on start, and by any upkeep command
-  but `--check-name`): under the database's write lock (`BEGIN IMMEDIATE`, so a second
-  process opening it at the same moment waits and then finds it done), a dated copy
-  `<db>-before-steady-YYYYMMDD-HHMMSS.db` beside it (mode 600, read through a second
+- *Migration.* A database without the `mode` column, the `notebooks` table or the
+  `basilisk` column is brought up to date on the first connection that can write (so on
+  start, and by any upkeep command but `--check-name`): under the database's write lock
+  (`BEGIN IMMEDIATE`, so a second process opening it at the same moment waits and then finds
+  it done), a dated copy `<db>-before-steady-YYYYMMDD-HHMMSS.db` (or `-before-basilisk-` when
+  only the basilisk column is missing) beside it (mode 600, read through a second
   connection; reused if the update could not finish), then `ALTER TABLE ... ADD COLUMN mode
-  ... DEFAULT 'assist'`, the table and its trigger, in that one transaction. Nothing happens
+  ... DEFAULT 'assist'`, the table and its trigger, and `ADD COLUMN basilisk ... DEFAULT 0`,
+  in that one transaction. Nothing happens
   while the file is read-only; one thread tries at a time, and for 5 s after a try that
   could not finish (the database locked by another process) requests are told the board is
   resting at once instead of queueing. The old server script still reads and writes an
   updated database. `dist/DEPLOY.md` has the steps for the live board (the server first,
   nginx's `client_max_body_size` from 4k to 64k, then the game).
+- *The live board and the basilisks.* The board on the VM still runs the server from before
+  the basilisks. It takes days without a basilisk catch from this game as before (that server
+  knows no basilisk stamps, so a notebook holding "Water runner" is sent again without it,
+  `postDay`, and keeps the rest), but refuses any day with a basilisk caught ("Unknown
+  species: basilisk", which the end card shows) until this server is deployed there. Deploy
+  the server first (on start it adds the `basilisk` column to the live database, after its
+  dated `-before-basilisk-` copy, and keeps every entry), then the game.
 - *Checks:* scripted tests of the server (mode values, every notebook field's types, unknown
   keys, caps, clamping, parts and stamps against the score, final newlines, script-like strings
   in every string field, the photo's form and size, `day/<key>`, the notebook cap, the migration
@@ -1218,7 +1334,8 @@ others to read. Sharing stays low-key.
 - `pathMask`, `pathAt`, `pathDistance`, `pathLines` from `ground_decor.js` and
   `SHADOW_TINT` from `sky.js`, read-only, for anything that should keep off the paths or
   match the shadow colour.
-- `game.lizards`: `all` (the active lizards, updated in place), `nearest(pos, maxDist,
+- `game.lizards`: `all` (the active lizards, updated in place), `guests` (lizards another
+  system draws and moves, the basilisks, refilled by it each frame), `nearest(pos, maxDist,
   filter)` (hidden ones too; filter `lz => lz.visible`), `pick(ray, maxDist = 30)` ->
   `{ lizard, point }` or null (a reused object; drawn wood in the last 12 m of the ray
   and every trunk from `veg.hosts.trunks` block it, leaves do not, so a pick from the
@@ -1426,22 +1543,26 @@ The game loop. `main.js` loads `src/tools/ring.js` as `game.tools` and
 - **James's lines** all live in `src/story/script.js` (`SCRIPT`): `{name}` is the player's
   name, other `{words}` are listed beside each line, a list of one-line lists is a pool
   picked at random. Plain text only in his lines (a `[Key]` mark is shown as the bare key).
+  Jon's are `SCRIPT.jon`, the same way.
 - **Tuning** is all in `src/game/rules.js` (`RULES`): the day, the bag, the points
   (rarity common 10, uncommon 25, rare 50, very rare 100, times `repeat` [1, 1, 0.5, 0.5,
   0.25] by how many of that species were caught earlier the same day; creep 15, display
   30, first of a species 40, backpack 40, spot 5, task 100, logger reading 15, request 50,
   GPS download 15, perch taped 5, a perch logger clipped 10 and its first download 15 (5 for a
-  later one), croc -50, and the catch's extras: perfect snug 10, SVL
+  later one), croc -50, a careless pole break -25 (`carelessBreak`), and the catch's extras: perfect snug 10, SVL
   spot on 5, perch noted right 5, crocodile spotted 25, same-day recapture 5; the field
   kit: a finished mission 40, 80 or 120 by stars, a plant 10 and 10 more named right, a
   scan 10 a star), the requests a day, the summary bands, the rarity from
   the record counts, backpack colours, the looks, the reach of jobs (a GPS download 6 m,
-  the tape 3 m), how often a logger can be read (every 1.5 game hours) and the loggers'
-  microclimate. `catchPoints(species, { alerted, display, first, backpack, today })` adds
-  up a catch.
+  the tape 3 m), how often a logger can be read (every 1.5 game hours), the loggers'
+  microclimate, the odds of loops and poles giving (`RULES.breaks`) and how often Jon comes
+  (`RULES.jon`).
+  `catchPoints(species, { alerted, display, first, backpack, today })` adds up a catch.
 - **State** (`state.js`): `state = { phase, playerName, looks, clock, score, best, days,
   inventory, species: { crested, brown, green, bark, knight, croc: { spotted, caught,
-  tagged, biggestSvl } }, tasks, setup, flags, loggers, tracked, today, summary }`. Lizards
+  tagged, biggestSvl } }, tasks, setup, flags, loggers, tracked, breaks, jon, today, summary }`
+  (`breaks` is `{ loops, poles }`, the season's snaps and breaks, saved; `jon` is `{ met,
+  hints }`, whether you have met Jon and the species he has given a hint for, saved). Lizards
   carry their scientific epithet (`cristatellus`...); `speciesKey()` gives the notebook's
   key. The counts come from events: `lizard:spotted`, `lizard:caught` { lizard, bonus },
   `lizard:measured` { lizard, svl }, `lizard:tagged` { lizard, colour } (adds a
@@ -1473,8 +1594,12 @@ The game loop. `main.js` loads `src/tools/ring.js` as `game.tools` and
   on the leaves, catch one; bark: spot one, catch 3; knight: spot one in the canopy, 2.5 m
   up or more, a backpack; crocodile: spot it from a safe distance), five field tasks
   (download all 12 loggers in a day, a catch mid-display, 3 creep catches, 3 perch heights
-  taped before the catch, a GPS track downloaded) and the field kit's four. Each done task
-  stamps, toasts and scores `RULES.points.task`.
+  taped before the catch, a GPS track downloaded), the field kit's four and, last, the brown
+  basilisk's two ("Basilisk!": catch one; "Water runner": watch one run across the water,
+  `basilisk:waterrun`). Each done task stamps, toasts and scores `RULES.points.task`. The
+  notebook keeps the basilisk's page, index entry, bookmark and stamp slots back until one
+  has been spotted or caught (`revealed(u)`, `shownSpecies()`; its index then goes four
+  across), and the day's summary shows its row from then on too.
 - **The tool ring** (`ring.js`): hold Q, point (or steer with WASD) and let go; 1 to 6 pick
   at once (1 loop pole, 4 GPS backpacks, 5 tape measure, 6 empty hands; 2 and 3 are free since
   the flags and loggers stand from the start, and the field kit's tools follow them); X puts the tool away. The ring holds the player still while it is open.
@@ -1535,6 +1660,136 @@ The game loop. `main.js` loads `src/tools/ring.js` as `game.tools` and
   belt. `setTool(id, { pose, instant })` swaps with a quick reach back to the pack;
   `setStowed({ flags, loggers, pole })` (`pole: false` hides the loop pole on the pack until the opening's hunt finds it); `setLooks({ hat, shirt })` rewrites the hat's and the
   shirt's vertex colours. No extra draw calls.
+- **Loops and poles that break** (`src/catch/breaks.js`, `game.catching.breaks`; survey day
+  only, never in the opening; odds and timings in `RULES.breaks`; random draws from
+  `makeRng` (`world/models.js`) seeded by `?breakseed=n`, else the clock, so they never
+  touch `Math.random`'s sequence). Nothing goes without a tell: for `RULES.breaks.tell`
+  (0.6 s) the loop frays or the pole creaks, the pole shakes in the hands
+  (`avatar.aim.wobble`) and the loop swings, with a toast and a sound; only then does it go.
+  - *Loop snaps.* A missed snug (too early or too late) snaps the floss loop one time in 5
+    (`loop`), 3 in 10 on a knight anole, which bites floss (`loopKnight`); so may a bop in
+    Precise aiming. It goes at once, while the loop is still over the lizard (before the
+    miss plays out): the loop's two halves whip off the tip and fall as strands, with a
+    small white burst (`src/catch/snap_fx.js`, built at the first snap; `breaks.fx`), the
+    pole kicks back (`avatar.aim.recoil`), the floss snap sounds (the toast's chime held
+    back, the music dipped) and the toast "Oh no, your loop has snapped!" comes; the tool
+    badge says "Loop snapped" until it is re-tied. The loop leaves the pole
+    (`avatar.setLoop(false)`); the pole stays in hand 0.8 s (`breaks.settling`), then stays
+    down until it is re-tied: with the pole in hand the hint offers "[E] Re-tie the floss
+    loop", which opens the opening's floss card (`floss.js`, one go a press); a catch cannot
+    start meanwhile.
+  - *Canopy breaks.* A miss on a lizard on branches or leaves 2 m up or more
+    (`canopyHeight`) tangles and breaks the pole one time in 10 (`canopy`), before any loop
+    roll. No penalty.
+  - *Careless breaks.* With the loop pole raised (aiming, or more than half way up), a jog
+    stopped dead by a trunk (the vegetation's `hosts.trunks`) or the field station's props
+    (bushes and the water's edge do not count), or the loop swung along the ground at 2.6 m/s
+    or more in Precise aiming (`ground`), is a stub. The day's first only says "Thwack! Mind
+    the pole."; after that each stub breaks the pole 3 times in 10 (`careless`), for -25 on
+    the day (`RULES.points.carelessBreak`, the HUD's "Broken pole"; the board's notebook
+    files it with the croc's snaps under "Losses", its one part for them).
+    Putting the pole away during the creak saves it.
+  - *The lab rule.* The season's first break of either kind (`state.breaks.poles` 0) is
+    free: no penalty, James over the radio ("First one's free. That's the rule.") and a new
+    pole in your hands 1.2 s later. After that the loop pole leaves the ring
+    (`setToolFilter`) and the pack, the tool badge says "Pole broken: James has a spare",
+    the maps pulse "New pole" at James, and his talk prompt becomes "[E] Ask James for a new
+    pole": his line goes by `breaks.kind` (`SCRIPT.breaks.replace.canopy` or `.careless`)
+    and then he hands one over (`breaks.replace()`, from `chat()` in flow.js). Without a pole
+    you still walk, spot and use the other tools. A new day or a new season starts whole.
+  - *Records.* `state.today.loopSnaps`, `canopyBreaks` and `carelessBreaks` (counted in
+    state.js from the events, with the penalty) show under "Today's catches" on the
+    notebook's grid page and on the end-of-day card, a phrase per kind
+    (`breakWords` in notebook.js); neither shows anything on a day without.
+  - *Hooks for a helper* (Jon re-ties a snapped loop, once). `loop:snap` {
+    first, count, lizard, species, why, claim } comes as the loop goes: `first` is true for
+    the season's first snap (`state.breaks.loops` was 0), `why` is 'early', 'late' or 'bop'.
+    A listener that will do the re-tie calls `e.claim()` there and then (synchronously): the
+    "Re-tie it" toast (1.4 s after the snap otherwise) does not come and the player's [E]
+    offer stays off. It then calls
+    `game.catching.breaks.retie(by)` (`by`: who, e.g. 'jon') to put the loop back on with no
+    card, which emits `loop:tied` { by }; or `breaks.handBack()` to give the job back to the
+    player. A claim left alone for 6 s (counted only while no talk or card is up) goes back
+    to the player by itself, with the "Re-tie it" toast. `breaks.snapped`, `breaks.noPole` and `breaks.onTheWay` (the free pole's
+    moment) say where things stand;
+    the other events are `loop:fray` { lizard } (the tell), `pole:stub` { warn },
+    `pole:creak` { kind }, `pole:break` { kind, free, count } and `pole:new` { from:
+    'radio' | 'james' | 'reset' }.
+- **Jon** (`src/story/jon.js`, `game.story.jon`), from the lab, drawn as himself on James's
+  rig (`buildJames(game, { geometry, name, bag: false, solid: false })`; `james.js` exports
+  `partList`, `mergeParts` and its shape helpers for him): big fluffy wavy hair from
+  overlapping rounded tufts, wider than the head and down to the shoulders, with the head
+  torch's green band round it, thin dark rectangular glasses, a moustache and a short chin
+  beard along the jaw, a toothy grin (dark inside; the flat face shapes are cut finer before
+  they are wrapped onto the head, so the skin never shows through them), a fine blue gingham
+  shirt (a `paint` per triangle on the rig's parts), a plain green lanyard and an orange GPS
+  backpack. Portrait `jonPortrait()` (drawings.js); a dialogue
+  whose speaker is Jon gets it. He just appears, on the survey day only.
+  - *Coming.* A visit wants a spot `RULES.jon.near` (3 to 6 m) from the player, free and
+    walkable, with a straight walk up to 2 m from them and a talk camera over their
+    shoulder with no bush, trunk or crown in the way; and out of the camera's view, which is
+    tested as spheres round his head, body, legs and boots (mid-stride too) and round his
+    shadow (from the sun's direction, `sky.state.sunDir`). He is placed there and shown in the same frame, after the
+    story's camera has moved for it (`jon.update` runs last in `flow.js`'s update); the next
+    frame the story's camera (`shot`) cuts to the talk, so nobody sees him arrive. He walks
+    up and says "Oh, hey." (the first time, who he is), then the visit's lines; the player
+    turns to him. Never during a catch, a mission, a talk, a card, a cutscene or the ring,
+    only after 0.8 s of none of them. At most `RULES.jon.most` (3) visits a day, all kinds
+    counted (`jon.visits`), and `RULES.jon.gap` (3) game hours apart (an hour is about a
+    minute of play); the re-tie may come sooner, but counts.
+  - *Going.* After the talk he walks off behind the nearest tree or bush: one that hides
+    him from the camera if there is one not much further than walking out of the side of the
+    view, else one on his way out of the view; then across the nearer side of the view
+    (the view's side plane). He is gone the first frame every sphere is outside the view or
+    wholly inside it and behind a trunk or bush (as volumes a little inside what is drawn;
+    crowns never count, and nothing near the vegetation cut-out's tunnel to the player does). If he cannot get out of
+    the view that way (twice), he heads 7 to 12 m from the player (the follow camera keeps
+    anything near them in frame however it turns), to a spot out of view if one can be
+    walked to, and stands there looking off until the camera turns from him, looking again
+    every 1.5 s.
+  - *His jobs.* A snapped loop, until he has re-tied one (`state.jon.retied`, saved): he
+    claims it (`loop:snap`; not once his visits for the day are used up), comes 1.7 s after
+    the snap, so the snap is seen and heard first, and re-ties it on his second line
+    (`breaks.retie('jon')`), "Just the once, mind"; after that they are the player's. A
+    claim that lapses (he found no spot out of view in time) leaves it for the next snap.
+    The player's own first lock-on to each species not caught yet (held 0.5 s; a lock
+    forced by scripted play does not count): one short hint, saved in `state.jon.hints`, never
+    repeated (the brown basilisk's: "Get between it and the water."). `RULES.jon.nudge` (2) game hours with no catch: a word on sun and shade for
+    the time of day (`lizards.thermalPhase()`), once a day. All five GPS backpacks fitted:
+    `RULES.jon.spares` (2) more, once that day.
+  - *Notes.* When he cannot come (visits used up, too soon after the last, or for the
+    backpack word nowhere to come from unseen), a hint comes as a toast with his portrait,
+    "Jon: Knights gape before they bite. Ease off." (`SCRIPT.jon.notes`, `kit.toast(text, {
+    portrait: 'jon' })`), at most one every `RULES.jon.noteGap` (2) game hours (one that
+    cannot go yet waits for the next lock-on on that species); the spares come as a note
+    too; the backpack word comes as a "Note from Jon" dialogue with the same choice; the
+    word on sun and shade is dropped for the day. `jon.notes` counts today's by kind, and
+    each emits `jon:note` { kind, species }.
+  - *The backpacks' spread.* As a GPS backpack is about to go on (`jon.steer(lizard)`, the
+    release's `beforePack` hook in catching.js, before the card): when today's fits already
+    include `RULES.jon.sameSpecies` (2) of that species (the brown basilisk counts as one, with
+    a line of its own), or the last `sameArea` (2) were all
+    within `area` (15) m of this lizard, he comes (out of view, as ever; skipped when he
+    cannot, in a mission or a cutscene) with one line naming the species and others that
+    would tell us more, or the part of the island (by the compass from the middle of the
+    walkable ground, or round the lawn) and the other side, then the choice: "Let it go"
+    (the default: no card, the backpack stays in the case) or "Fit it anyway". No points
+    either way; once per species and once per area a day. When he cannot come it is a note
+    with the same choice.
+  - *Model.* Built the first time he comes (or `jon.ensure()`): three.js draws on
+    `Math.random` for every object's id, so a day he does not come draws exactly as before.
+  - Events `jon:appear` { kind, x, z }, `jon:gone` { x, z, behind } ('tree', 'bush' or
+    null when out of the view) and `jon:note` { kind, species }; `jon.frames` { appear, gone } holds the `game.frame` of each,
+    and `jon.visit(kind, species)` asks for a visit whatever the odds and the gap.
+- **James's nudge towards the field jobs** (flow.js, `RULES.kitNudge`): after 8 catches in
+  the day (`catches`), or 6 since the last field job or nudge (`since`; a mission finished or
+  a logger read is a field job), with one not done today (the laser scanner, the drone, the
+  RTK plant survey, then the loggers, as `missions.offerable()` and `state.today.loggersRead`
+  say), James says a line on the radio for it (`SCRIPT.survey.kitNudge`, the catching
+  praised first) and the maps mark it as a job to do (at James for the kit, the nearest
+  logger) until it is taken on or done. At most twice a day (`most`), 1.5 game hours apart
+  (`gap`), a different job the second time if one is left; never in a catch, a mission, a
+  talk, a cutscene or a visit from Jon, and only after 2.5 s of none of them.
 - **Flags and loggers** (nothing to lay out, and each has a point). Stakes on dry land
   (177) are one instanced mesh; the 12 grid flags of
   `data/stakes.json` another (the cloth waves in the vertex shader and shows its stake's
@@ -1617,7 +1872,8 @@ The game loop. `main.js` loads `src/tools/ring.js` as `game.tools` and
   `ibis:drop` { gaveUp }, `setup:station` (the table stood up), `setup:floss`,
   `setup:practice`, `practice:done` { lizard }, `story:abort` (a new story flow began: an
   older one's waits end), `tracked:add`, `day:new` (today's blank
-  counts), `day:end` (the summary), `ring:open`, `ring:close`. For the
+  counts), `day:end` (the summary), `ring:open`, `ring:close`, `hud:tool` (the tool
+  badge to read the loop again: breaks.js). For the
   sound: `dialogue:type` (speaker, full text, characters shown; kit.js), `dialogue:skip` (a
   key finished a line early; kit.js), `ui:toast` (tone,
   icon), `notebook:page` (index), `card:act` (card, value: 'ruler' quality, 'paint'
@@ -1626,7 +1882,11 @@ The game loop. `main.js` loads `src/tools/ring.js` as `game.tools` and
   The field kit adds `mission:start` { id }, `mission:step` { id, step }, `mission:done` { id,
   stars, points } and `mission:fail` { id, why } (src/missions). The perch loggers add `perch:clip` { entry,
   kind, species, lizard } and `perch:download` { entry, first, whole, hours }
-  (src/tools/perch_loggers.js).
+  (src/tools/perch_loggers.js). Loops and poles add `loop:fray`, `loop:snap`, `loop:tied`,
+  `pole:stub`, `pole:creak`, `pole:break` and `pole:new` (src/catch/breaks.js; below). The
+  basilisks add `basilisk:patter` (x, z), `basilisk:waterrun` { basilisk, first } and
+  `basilisk:landed` { basilisk, x, z } (src/wildlife/basilisk.js), and emit `lizard:alert`,
+  `lizard:flee`, `lizard:display` and `lizard:escaped` { why: 'water' } as a lizard.
 - **Flags:** `?phase=title|intro|hunt|practice|survey|summary` (`setup` is kept as `hunt`;
   hunt, practice and survey skip what comes before; survey skips James's morning lines),
   `?huntstep=loop_pole|notebook|bags|scales|ibis|station|floss|practice` (a fresh opening at
@@ -1673,7 +1933,13 @@ The game loop. `main.js` loads `src/tools/ring.js` as `game.tools` and
 - **Input.** Enter on a focused button presses only the button, never [E] as well. With
   Ctrl held (creeping), mapped keys are `preventDefault`ed (no Find, Save, Print or Select
   all), Ctrl+1..6 and Ctrl+N are not mapped (the browser takes them), and a key pressed
-  with Cmd is never mapped (no keyup comes on macOS; Cmd lets go of every key).
+  with Cmd is never mapped (no keyup comes on macOS; Cmd lets go of every key). The right
+  button's aim follows the buttons that every mouse event on the page reports, wherever it
+  lands, so letting go over a card, a talk box or off the page lets go of the aim, and a left
+  click with the right held (a chord, which comes as a pointermove) still clicks. When the
+  game ends the aim itself while it is held (a catch's cards, a talk, a panel, a push, the
+  pole put away), `input.drop('aim')` keeps it up until it is pressed again, so the pole
+  never goes back up on its own (`LoopPole._end()`, the one place aiming ends).
 - **Busy.** The ring stays shut and its quick keys do nothing during a talk, a card, a
   cutscene or a catch (`game.catching.busy`, the in-world snug included).
 - **The UI kit** (`kit.js`). Toasts made in the same moment are shown plain first, then gold,
@@ -1705,7 +1971,8 @@ The game loop. `main.js` loads `src/tools/ring.js` as `game.tools` and
   closes the tab on Windows and Linux.
 - **Scripted play.** `window.__game.play` has the story's helpers (above), `ui` (open,
   close, page, toast, title) and `catch` (`catchNearest(species, quality)`, `goTo`,
-  `aim`, `lock`), and `game.catching.loopPole.cycle(dir)` moves the lock-on to the next
+  `aim`, `lock`, `fixNow()`: the tagged lizards' GPS fixes for the clock as it is, so a
+  scripted day can move the clock on and log them), and `game.catching.loopPole.cycle(dir)` moves the lock-on to the next
   lizard. The scripted full play-through plays title to summary and back like a player: the
   intro with the name and looks, the opening on foot (the hunt, the ibis crept up on, the table,
   the floss, the practice catch), every survey catch by creeping up, holding F and pressing E
@@ -1754,6 +2021,9 @@ The game loop. `main.js` loads `src/tools/ring.js` as `game.tools` and
 | `?lizard=<species>` | stand the player about 2 m from the nearest one that can be seen and hold a close camera on it until the player moves. For check images: `&perch=bark\|branch\|leaf\|ground\|log`, `&nth=k` (skip k), `&lizardcam=m` (camera distance, or `side` for a view over the player's shoulder), `&lizardfrom=m` (player distance), `&lizardlift=m` (camera height over it), `&scare=s[,creep\|walk\|jog]` (from s seconds the player walks at it, camera held), `&fleehold=f` (its escape stops at fraction f), `&lizardi=i` (that spawn, whatever the distance); with `lizardcam=side`, `&lizardback=m` and `&lizardaside=m` put the camera behind and beside the player (2.6 and 1.3; a negative aside takes the other side) and `&lizardmid=f` aims it f of the way from the lizard to the player (a flank view: back -1.2, aside -4.3, mid 0.45, as in `tools/m3_checks.py`). The held close view turns the cut-out off, so the perch stays whole |
 | `?croc=cruise\|haul\|bask\|warn\|snap\|warncalm\|walkin` | a crocodile scene near the player; with `&crocspot=k` (haul-out spot), `&crocat=x,z` (where the cruiser starts), `&crocbask=s`, `&crocfreeze=1` (hold the snap), `&crocview=m` (a camera m metres beside croc 0; `&crocside=-1`, `&crocup=k`), `&crocyaw=a` (turn the follow camera) |
 | `?crocseed=n` | fix the crocodiles' random choices (the default follows the clock) |
+| `?basilisks=all`, `?basiliskseed=n` | a basilisk at every one of the 11 sites (in any phase), and the day's draws fixed (src/wildlife/basilisk.js) |
+| `?nobasilisks=1` | skip the brown basilisks |
+| `?breakseed=n` | fix the loop snaps' and pole breaks' random draws (src/catch/breaks.js; the default follows the clock) |
 | `?crocfast=k`, `?crocdiag=s` | run the crocodiles k times faster; after s seconds, their stats and event counts as JSON in `<pre id="croc-diag">` |
 | `?debug=croc` | the swim map, the haul-out spots and the current routes |
 | `?mission=drone\|tls\|rtk` | the survey day (implied) with that field-kit mission started near its start; `&missionstep=` holds one moment for a check image (the lists are under "The field kit: three missions"), with `&missionspot=1..8` (the scanner's spot) and `&missiontarget=k`, `&missionback=m` (the rover's plant and how far back to stand) |
@@ -1821,7 +2091,9 @@ main pass's, with the shadow pass's in brackets.
   0.13 M triangles for 36 active lizards (3,050 to 4,714 triangles a model, about half of it
   the outline shell; the instance count is the live count). Each crocodile in view adds at most
   3 calls (body, outline, effects; none out of the frustum) and 18.9 k triangles.
-  `?lizards=many` adds 5 calls and 0.45 M. Neither draws in the top view.
+  `?lizards=many` adds 5 calls and 0.45 M. Neither draws in the top view. A basilisk in view
+  adds 2 calls (body and outline) and about 10.5 k triangles (5.2 k a mesh); none is drawn
+  more than 45 m off or out of the frustum.
 - **Each state** at 1600x1000: the title 45 (65); the intro 35 (55); the kit hunt 39 to 42 (58
   to 62); the ibis 43 (63); the station 38 (58); the floss and the practice 38 (59); the survey
   day 46 to 47 (68 to 69) at 08:00 and 12:30, and the same with every logger downloaded; a

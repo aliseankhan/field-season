@@ -34,6 +34,7 @@ const SPECIES = [
   { key: 'green', sci: 'carolinensis', common: 'Green anole' },
   { key: 'bark', sci: 'distichus', common: 'Bark anole' },
   { key: 'knight', sci: 'equestris', common: 'Knight anole' },
+  { key: 'basilisk', sci: 'basilisk', common: 'Brown basilisk' },
 ];
 const SP = Object.fromEntries(SPECIES.map((s) => [s.key, s]));
 const PERCHES = Object.keys(PERCH_WORDS);
@@ -122,7 +123,7 @@ function coverPage(day, nb) {
   const stat = (v, label) => `<div class="nb-stat"><b>${escapeHtml(String(v))}</b><small>${escapeHtml(label)}</small></div>`;
   // the day's rarest catch on the cover, as a photo pinned in ("the day's catch" when
   // there was only the one species)
-  const rare = ['knight', 'bark', 'green', 'brown', 'crested'].find((k) => nb.catches.some((c) => c.sp === k));
+  const rare = ['basilisk', 'knight', 'bark', 'green', 'brown', 'crested'].find((k) => nb.catches.some((c) => c.sp === k));
   const photo = rare
     ? `<figure class="nb-photo db-cover-photo">${anoleSVG(SP[rare].sci, { perch: true, dewlap: true })}<figcaption>${species > 1 ? 'The rarest catch' : 'The day\'s catch'}: a ${escapeHtml(SP[rare].common.toLowerCase())}</figcaption></figure>`
     : `<figure class="nb-photo db-cover-photo">${anoleSVG('cristatellus', { silhouette: true })}<figcaption>No catches that day</figcaption></figure>`;
@@ -144,7 +145,7 @@ function summaryPage(day, nb, tasks) {
     `<i style="flex:${P[k]};background:${c}" title="${escapeHtml(label)}"></i>`).join('') : '';
   const legend = PARTS.filter(([k]) => P[k] > 0).map(([k, label, c]) =>
     `<span><i style="background:${c}"></i>${escapeHtml(label)} <b>${num(P[k])}</b></span>`).join('') +
-    (P.croc ? `<span class="is-loss"><i></i>Croc snaps <b>-${num(P.croc)}</b></span>` : '');
+    (P.croc ? `<span class="is-loss"><i></i>Losses <b>-${num(P.croc)}</b></span>` : ''); // (croc snaps and broken poles)
   // the species caught: how many and the biggest SVL
   const rows = SPECIES.map((s) => {
     const list = nb.catches.filter((c) => c.sp === s.key);

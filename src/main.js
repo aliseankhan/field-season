@@ -78,6 +78,8 @@ async function loadProps(data, renderer, veg) {
 const OPTIONAL_SYSTEMS = [
   { name: 'lizards', path: './lizards/lizards.js' },
   { name: 'croc', path: './wildlife/croc.js' },
+  // the brown basilisks on the ground by the water (game.basilisks; after the lizards, whose guests they are)
+  { name: 'basilisks', path: './wildlife/basilisk.js' },
   // the tool ring with the grid flags, loggers, backpacks and tape
   // (game.tools), and the story: James, the phases and the set-up day (game.story)
   { name: 'tools', path: './tools/ring.js' },

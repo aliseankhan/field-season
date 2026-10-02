@@ -148,6 +148,41 @@ export function whiff(E, t) {
   return true;
 }
 
+// Loops and poles that give (src/catch/breaks.js): the floss straining, then going with a
+// thin ping; the bamboo creaking, then cracking.
+export function fray(E, t) {
+  if (!claim(E, t, 0.5)) return false;
+  const out = fxOut(E);
+  grains(E, out, t, { n: 9, span: 0.45, len: 0.012, fmin: 2600, fmax: 4800, q: 4, peak: 0.12, jitter: 0.5 });
+  tone(E, out, t, { type: 'triangle', f: 880, f1: 990, glide: 0.4, a: 0.05, d: 0.35, peak: 0.03 });
+  return true;
+}
+export function flossSnap(E, t) {
+  if (!claim(E, t, 0.5)) return false;
+  const out = fxOut(E);
+  // the crack of it going, a bright ping falling away, and the loose ends whipping off
+  noiseHit(E, out, t, { kind: 'white', filter: 'highpass', f: 2600, a: 0.001, d: 0.035, peak: 0.32 });
+  tone(E, out, t, { type: 'triangle', f: 2200, f1: 520, glide: 0.16, a: 0.001, d: 0.3, peak: 0.26 });
+  tone(E, out, t + 0.01, { type: 'sine', f: 3300, f1: 1400, glide: 0.1, a: 0.001, d: 0.16, peak: 0.1 });
+  noiseHit(E, out, t + 0.05, { kind: 'pink', filter: 'bandpass', f: 1800, f1: 4200, q: 1.4, a: 0.01, d: 0.14, peak: 0.16 });
+  return true;
+}
+export function creak(E, t) {
+  if (!claim(E, t, 0.7)) return false;
+  const out = fxOut(E);
+  noiseHit(E, out, t, { kind: 'pink', filter: 'bandpass', f: 900, f1: 600, q: 4, a: 0.08, hold: 0.25, d: 0.25, peak: 0.12 });
+  tone(E, out, t, { type: 'sawtooth', f: 150, f1: 115, glide: 0.5, a: 0.06, hold: 0.2, d: 0.25, peak: 0.02 });
+  return true;
+}
+export function crack(E, t) {
+  if (!claim(E, t, 0.5)) return false;
+  const out = fxOut(E);
+  noiseHit(E, out, t, { kind: 'white', filter: 'bandpass', f: 2400, f1: 900, q: 0.9, a: 0.001, d: 0.08, peak: 0.45 });
+  tone(E, out, t, { f: 420, f1: 160, a: 0.001, d: 0.09, peak: 0.25 });
+  noiseHit(E, out, t + 0.05, { kind: 'brown', filter: 'lowpass', f: 600, a: 0.002, d: 0.12, peak: 0.25 });
+  return true;
+}
+
 // ---------------------------------------------------------------- the catch cards
 
 export function bagRustle(E, t) {
@@ -496,6 +531,20 @@ export function paddle(E, t, x, z, k = 1) {
   for (let i = 0; i < 2; i++) {
     const f = between(900, 1500);
     tone(E, out, t + 0.05 + rand() * 0.18, { f, f1: f * 1.7, glide: 0.035, a: 0.002, d: 0.04, peak: 0.035 * k });
+  }
+  return true;
+}
+
+// A basilisk running across the water: a quick patter of four little slaps, each a wet
+// tick on top and a soft plop under it (one burst every 0.16 s while it runs).
+export function patter(E, t, x, z) {
+  E.where(x, z, 18, W);
+  if (W.gain <= 0.02 || !claim(E, t, 0.18)) return false;
+  const out = E.spot(fxOut(E), W.gain, W.pan);
+  for (let i = 0; i < 4; i++) {
+    const at = t + i * 0.04 + rand() * 0.008, v = between(0.8, 1.1);
+    noiseHit(E, out, at, { kind: 'white', filter: 'bandpass', f: between(2000, 3400), q: 1.6, a: 0.001, d: 0.025, peak: 0.11 * v });
+    noiseHit(E, out, at, { kind: 'brown', filter: 'lowpass', f: 700, a: 0.002, d: 0.045, peak: 0.09 * v });
   }
   return true;
 }

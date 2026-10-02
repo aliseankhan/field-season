@@ -41,6 +41,7 @@ export const RULES = {
     tapeHeight: 5, // a perch height taped before the catch
     flagPlaced: 0, // set-up day is untimed; stamps, no points
     croc: -50, // the crocodile's snap (and the seconds it costs are in croc.rules)
+    carelessBreak: -25, // a loop pole broken by stubbing it (not the first break: that one's free)
     // the field kit's missions (src/missions): a finished mission scores by its stars
     // (1 to 3) on top of the request's own 50; the plant survey adds a little per plant
     mission: [0, 40, 80, 120],
@@ -76,6 +77,25 @@ export const RULES = {
   // The croc's snap costs this much of the day (real seconds of clock time).
   crocSeconds: 20,
 
+  // Loops that snap and poles that break (src/catch/breaks.js), survey day only. Odds are
+  // per missed snug, per bop, or per stub; `tell` is how long the creak or the fraying
+  // shows before anything goes (seconds); a canopy break needs a lizard this high (m) on
+  // branches or leaves; a stub is a jog stopped dead by something solid, or the loop
+  // driven into the ground at `ground` m/s or more.
+  breaks: { loop: 0.2, loopKnight: 0.3, canopy: 0.1, canopyHeight: 2, careless: 0.3, tell: 0.6, ground: 2.6 },
+
+  // Jon (src/story/jon.js): at most `most` visits a day, `gap` game hours apart (the re-tie
+  // may come sooner; an hour is about a minute of play), and a hint as a note at most one
+  // every `noteGap` game hours when he cannot come; a spot `near` metres from the player, a nudge after `nudge` game hours with no catch, and `spares` backpacks once all
+  // five are fitted. A backpack word comes when today's fits include `sameSpecies` of that
+  // species, or the last `sameArea` fits were all within `area` metres of this lizard.
+  jon: { gap: 3, most: 3, noteGap: 2, near: [3, 6], nudge: 2, spares: 2, sameSpecies: 2, sameArea: 2, area: 15 },
+
+  // James's word on the radio towards a field job not done yet (flow.js): after `catches`
+  // catches in the day, or `since` since the last field job, at most `most` a day and
+  // `gap` game hours apart.
+  kitNudge: { catches: 8, since: 6, most: 2, gap: 1.5 },
+
   // Rarity from the lab's real record counts.
   rarity: {
     crested: { records: 6330, rarity: 'common' },
@@ -84,6 +104,7 @@ export const RULES = {
     bark: { records: 39, rarity: 'very rare' },
     knight: { records: 27, rarity: 'very rare' },
     croc: { records: 0, rarity: 'rare' },
+    basilisk: { records: 11, rarity: 'very rare' }, // the spring 2026 survey's (data/basilisks.json)
   },
 
   // Backpack colours handed out in turn, one per tagged lizard.

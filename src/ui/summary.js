@@ -1,6 +1,8 @@
-// The end-of-day card at the field station: today's catches by species, backpacks
-// fitted, loggers downloaded, tasks stamped and spotted lizards, the day's score against
-// the best, the lizards followed with a perch logger, and a line from James
+// The end-of-day card at the field station: today's catches by species (the brown basilisk
+// too, once one has been seen), backpacks
+// fitted, loggers downloaded, tasks stamped and spotted lizards (and any loops snapped or
+// poles broken), the day's score against the best, the lizards followed with a perch
+// logger, and a line from James
 // (src/story/script.js). Opens when the phase turns to 'summary'; its button hands over
 // to onDone (back to the title). When the game is hosted with the island board's API, a
 // second button puts the day on it (scoreboard.js).
@@ -10,7 +12,7 @@ import { SCRIPT, say } from '../story/script.js';
 import { icon, escapeHtml } from './icons.js';
 import { anoleSVG, crocSVG, jamesPortrait } from './drawings.js';
 import { registerPanel, openPanel, closePanel, currentPanel } from './kit.js';
-import { SPECIES_UI } from './notebook.js';
+import { shownSpecies, breakWords } from './notebook.js';
 import { summaryBoard } from './scoreboard.js';
 import { coinIcon, todaysStories } from './perch_day.js';
 
@@ -37,7 +39,7 @@ export function buildSummary(game, { onDone }) {
       const caught = T.caught || {};
       const S = state.summary || {};
       const isBest = S.newBest ?? (state.score > 0 && state.score >= (state.best || 0));
-      const rows = SPECIES_UI.map((u, i) => {
+      const rows = shownSpecies().map((u, i) => {
         const n = u.spotOnly ? null : caught[u.key] ?? caught[u.sci] ?? 0;
         const art = u.key === 'croc' ? crocSVG({ perch: false }) : anoleSVG(u.sci, { perch: false, dewlap: n > 0 });
         const seenCroc = T.crocSpotted || (state.species.croc && state.species.croc.spotted);
@@ -85,6 +87,8 @@ export function buildSummary(game, { onDone }) {
       if (T.displayCatches) extras.push(`${T.displayCatches} mid-display catch${T.displayCatches === 1 ? '' : 'es'}`);
       if (T.creepCatches) extras.push(`${T.creepCatches} caught unnoticed`);
       if (T.crocSnaps) extras.push(`${T.crocSnaps} croc snap${T.crocSnaps === 1 ? '' : 's'}!`);
+      // loops snapped and poles broken, by kind (src/catch/breaks.js)
+      for (const line of breakWords(T)) extras.push(line);
 
       const body = document.createElement('div');
       body.innerHTML =

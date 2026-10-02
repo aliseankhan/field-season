@@ -10,6 +10,7 @@
 // Keyboard, mouse and gamepad are sources that write into the same frame
 // state; a WebXR controller can be added with addSource(fn). A key can stand for
 // more than one action (Tab is 'notebook' and 'next'); the game decides which counts.
+// drop(name) makes a held button read as up until it is let go and pressed again.
 
 const BUTTONS = ['creep', 'jog', 'aim', 'use', 'notebook', 'pause',
   'tool', 'tool1', 'tool2', 'tool3', 'tool4', 'tool5', 'tool6', 'stow', 'map', 'next', 'prev', 'climb', 'descend'];
@@ -59,6 +60,9 @@ export class Input {
     this._zoomAcc = 0;
     this._clickUse = false;
     this._mouseAim = false;
+    this._buttons = 0; // the mouse buttons held at the last pointer event the page saw
+    this._buttonsWas = 0; // and at the one before it
+    this._dropped = new Set(); // buttons that read as up until they are let go
     this._sources = [];
     this._pads = 0;
     this._frame = { move: { x: 0, y: 0 }, look: { x: 0, y: 0 }, held: { ...this._held } };
@@ -68,6 +72,11 @@ export class Input {
 
   down(name) { return this._held[name] === true; }
   pressed(name) { return this._pressed[name] === true; }
+
+  // A held button reads as up from the next frame until it is let go (then it works
+  // again as usual). For when the game took over while it was held, so it does not
+  // carry on by itself afterwards.
+  drop(name) { if (this._held[name]) this._dropped.add(name); }
 
   // fn(frame, dt) may add to frame.move / frame.look and set frame.held[name] = true.
   addSource(fn) {
@@ -92,6 +101,7 @@ export class Input {
       this._pollGamepad(f, dt);
       for (const s of this._sources) s(f, dt);
     }
+    if (this._dropped.size) for (const b of this._dropped) { if (f.held[b]) f.held[b] = false; else this._dropped.delete(b); }
 
     const len = Math.hypot(f.move.x, f.move.y);
     const s = len > 1 ? 1 / len : 1;
@@ -181,18 +191,49 @@ export class Input {
       this._keys.clear();
       this._mouse.down = false;
       this._mouseAim = false;
+      this._buttons = 0;
     });
 
+    // The right button aims for as long as it is held. It is pressed on the game but can be
+    // let go anywhere: over a card or a talk box that opened meanwhile, off the window, or
+    // with the left still down (a second button pressed or let go while one is held comes
+    // as a pointermove, not a pointerdown or pointerup). So every mouse event the page sees,
+    // on its way to whatever is under the pointer, says which buttons are still held.
+    const held = (e) => {
+      if (e.pointerType !== 'mouse') return;
+      this._buttonsWas = this._buttons;
+      this._buttons = e.buttons;
+      if (this._mouseAim && !(e.buttons & 2)) this._mouseAim = false;
+    };
+    for (const type of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel']) window.addEventListener(type, held, true);
+
+    const press = (e, button) => {
+      const m = this._mouse;
+      m.down = true; m.button = button; m.x = e.clientX; m.y = e.clientY; m.moved = 0; m.t = performance.now();
+    };
+    // a press let go: a click when it barely moved
+    const release = () => {
+      const m = this._mouse;
+      if (!m.down) return;
+      m.down = false;
+      if (m.moved < 6 && performance.now() - m.t < 350) this._clickUse = true;
+    };
     el.addEventListener('contextmenu', (e) => e.preventDefault());
     el.addEventListener('pointerdown', (e) => {
       el.focus?.();
-      if (e.button === 2) { this._mouseAim = true; return; }
-      const m = this._mouse;
-      m.down = true; m.button = e.button; m.x = e.clientX; m.y = e.clientY; m.moved = 0; m.t = performance.now();
       el.setPointerCapture?.(e.pointerId);
+      if (e.button === 2) { this._mouseAim = true; return; }
+      press(e, e.button);
     });
     el.addEventListener('pointermove', (e) => {
       const m = this._mouse;
+      if (e.pointerType === 'mouse') {
+        // a button pressed or let go while another is held
+        const now = e.buttons, was = this._buttonsWas;
+        if ((now & 2) && !(was & 2)) this._mouseAim = true;
+        if ((now & 1) && !(was & 1) && !m.down) press(e, 0);
+        else if (m.down && !(now & (m.button === 1 ? 4 : 1))) { release(); return; }
+      }
       if (!m.down) return;
       const dx = e.clientX - m.x, dy = e.clientY - m.y;
       m.x = e.clientX; m.y = e.clientY;
@@ -202,10 +243,7 @@ export class Input {
     });
     const up = (e) => {
       if (e.button === 2) { this._mouseAim = false; return; }
-      const m = this._mouse;
-      if (!m.down) return;
-      m.down = false;
-      if (m.moved < 6 && performance.now() - m.t < 350) this._clickUse = true;
+      release();
     };
     el.addEventListener('pointerup', up);
     el.addEventListener('pointercancel', up);

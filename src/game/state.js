@@ -28,14 +28,16 @@
 //                         notebook (src/game/daylog.js), state.today.key its dayKey()
 //
 // attach(game) (flow.js calls it) wires the events below into the counts: lizard:spotted,
-// lizard:caught, lizard:measured, lizard:tagged, lizard:released, croc:spotted and
-// croc:snap (which takes RULES.points.croc and RULES.crocSeconds off the day).
+// lizard:caught, lizard:measured, lizard:tagged, lizard:released, croc:spotted,
+// croc:snap (which takes RULES.points.croc and RULES.crocSeconds off the day), and
+// loop:snap and pole:break (state.breaks for the season, state.today's counts, and a
+// careless break's RULES.points.carelessBreak).
 
 import { events } from '../core/events.js';
 import { RULES } from './rules.js';
 
 export { RULES };
-export const SPECIES = ['crested', 'brown', 'green', 'bark', 'knight', 'croc'];
+export const SPECIES = ['crested', 'brown', 'green', 'bark', 'knight', 'croc', 'basilisk'];
 // The lizards carry their scientific epithet (lizard.species); the notebook uses short keys.
 export const SPECIES_KEY = { cristatellus: 'crested', sagrei: 'brown', carolinensis: 'green', distichus: 'bark', equestris: 'knight' };
 export const speciesKey = (sp) => SPECIES_KEY[sp] || sp;
@@ -132,6 +134,7 @@ const blankToday = () => ({
   spotted: 0, tagged: 0, loggersRead: 0, tasksDone: 0, crocSnaps: 0, displayCatches: 0, creepCatches: 0,
   downloads: 0, taped: 0,
   perchClipped: 0, perchDownloads: 0, // perch loggers clipped and downloaded (src/tools/perch_loggers.js)
+  loopSnaps: 0, canopyBreaks: 0, carelessBreaks: 0, // floss loops snapped and loop poles broken (src/catch/breaks.js)
   requests: [], // James's requests for the day: { id, label, goal, n, done } (tasks.js draws them)
   steady: false, // Precise aiming from the day's start (newDay) and still on
   steadyOff: false, // Precise aiming was switched off during this day (it can't count again)
@@ -159,6 +162,8 @@ export const state = {
   followed: [],
   perchIntro: false, // James has said what the perch loggers are (once on a save)
   missions: {}, // the field kit's missions (src/missions): id -> { runs, done, best, points, data }
+  breaks: { loops: 0, poles: 0 }, // floss loops snapped and loop poles broken, all season (the first pole is free)
+  jon: { met: false, hints: [], retied: false }, // Jon (src/story/jon.js): met yet, the species he has given a hint for, and whether he has re-tied a loop
   today: blankToday(),
   summary: null, // the end-of-day card's numbers (flow.js)
   hasSave: false,
@@ -267,6 +272,8 @@ export function resetAll() {
   state.followed.length = 0;
   state.perchIntro = false;
   state.missions = {};
+  state.breaks = { loops: 0, poles: 0 };
+  state.jon = { met: false, hints: [], retied: false };
   state.days = 0;
   crocSpotted.clear();
   newDay();
@@ -308,6 +315,8 @@ export function save() {
     missions: cleanMissions(state.missions),
     followed: cleanFollowed(state.followed),
     perchIntro: state.perchIntro === true,
+    breaks: { loops: count(state.breaks.loops), poles: count(state.breaks.poles) },
+    jon: { met: state.jon.met === true, hints: state.jon.hints.filter((k) => SPECIES.includes(k)), retied: state.jon.retied === true },
   };
   try {
     s.setItem(SAVE_KEY, JSON.stringify(out));
@@ -404,6 +413,10 @@ export function load() {
   // (a story from a day that never ended, downloaded before a reload, is marked cut)
   for (const f of cleanFollowed(raw.followed, state.days)) state.followed.push(f);
   state.perchIntro = raw.perchIntro === true;
+  const B = raw.breaks && typeof raw.breaks === 'object' ? raw.breaks : {};
+  state.breaks = { loops: Math.floor(count(B.loops)), poles: Math.floor(count(B.poles)) };
+  const J = raw.jon && typeof raw.jon === 'object' ? raw.jon : {};
+  state.jon = { met: J.met === true, hints: Array.isArray(J.hints) ? [...new Set(J.hints.filter((k) => SPECIES.includes(k)))] : [], retied: J.retied === true };
   return raw;
 }
 
@@ -413,7 +426,7 @@ export function load() {
 // cut: from an attempt at a day that was left unfinished (the end-of-day card of the day
 // played again leaves it out); on load, finished: the survey days done, so a story of a
 // later day that was not picked up at its end is one of those.
-const FOLLOW_KEYS = ['crested', 'brown', 'green', 'bark', 'knight'];
+const FOLLOW_KEYS = ['crested', 'brown', 'green', 'bark', 'knight', 'basilisk'];
 const FOLLOW_PERCH = ['trunk', 'branch', 'ground', 'leaf', 'palm_stem', 'palm_frond', 'log', 'root'];
 const FOLLOW_CODES = 'busmhdxf';
 function cleanFollowed(list, finished = null) {
@@ -690,6 +703,20 @@ export function attach(g) {
     addScore(-Math.abs(Number(e && e.penalty && e.penalty.points) || RULES.points.croc), 'croc');
     const secs = (e && e.penalty && Number(e.penalty.seconds)) || RULES.crocSeconds;
     if (state.clock.running) state.clock.hours = Math.min(RULES.day.end, state.clock.hours + secs * state.clock.speed);
+  });
+  // loops snapped and poles broken (src/catch/breaks.js): a careless break costs points,
+  // unless it was the season's first (the lab rule: that one's free)
+  events.on('loop:snap', () => {
+    if (state.phase !== 'survey') return;
+    state.breaks.loops++;
+    state.today.loopSnaps++;
+  });
+  events.on('pole:break', (e) => {
+    if (state.phase !== 'survey' || !e) return;
+    state.breaks.poles++;
+    if (e.kind === 'canopy') state.today.canopyBreaks++; else state.today.carelessBreaks++;
+    if (e.kind === 'careless' && !e.free) addScore(RULES.points.carelessBreak, 'pole');
+    save();
   });
   events.on('logger:read', () => { state.today.loggersRead++; });
   events.on('gps:download', () => { state.today.downloads++; });

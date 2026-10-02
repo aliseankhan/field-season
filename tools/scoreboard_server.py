@@ -41,10 +41,13 @@ addresses, times or ids go into the database, and the API never sends ids back. 
 limit (one day every 20 s and 60 a day per client) is kept in memory under a keyed hash of
 the address, and forgotten.
 
-A database from before Steady hands (no mode column, no notebooks table) is brought up to
-date in place when the server first opens it, after a dated copy is made beside it
-(scores-before-steady-YYYYMMDD-HHMMSS.db); every row is kept, as an assist day with no
-notebook.
+A database from before Steady hands (no mode column, no notebooks table) or the basilisks
+(no basilisk column) is brought up to date in place when the server first opens it, after a
+dated copy is made beside it (scores-before-steady-YYYYMMDD-HHMMSS.db, or -before-basilisk-);
+every row is kept, as an assist day with no notebook and no basilisk.
+
+species may leave out "basilisk" (copies of the game from before the basilisks send five
+anoles): it counts as none, so those days still post, sort and show as before.
 
 Upkeep, run with the same --db:
     --show                 the boards' top five, then exit
@@ -93,40 +96,44 @@ API_VERSION = 1
 
 # ------------------------------------------------------------------ the game's numbers
 
-# The five anoles by their epithets (src/game/state.js SPECIES_KEY), rarest first by the
-# lab's record counts (RULES.rarity: knight 27, bark 39, green 233, brown 631, crested 6330).
-SPECIES = ("cristatellus", "sagrei", "carolinensis", "distichus", "equestris")
-RARITY_RANK = {"equestris": 1, "distichus": 2, "carolinensis": 3, "sagrei": 4, "cristatellus": 5}
+# The five anoles by their epithets (src/game/state.js SPECIES_KEY) and the brown basilisk,
+# rarest first by the lab's record counts (RULES.rarity: basilisk 11, knight 27, bark 39,
+# green 233, brown 631, crested 6330). The basilisk ranks 0 so the ranks already stored
+# with older days stay right. A day posted without a basilisk count (an older copy of the
+# game) has none.
+SPECIES = ("cristatellus", "sagrei", "carolinensis", "distichus", "equestris", "basilisk")
+RARITY_RANK = {"basilisk": 0, "equestris": 1, "distichus": 2, "carolinensis": 3, "sagrei": 4, "cristatellus": 5}
 NO_RAREST = 9
 
 # What one survey day can hold. The day is 8, 12 or 16 real minutes (RULES.day.dayMinutes
 # and the settings); a good day is 8 catches (RULES.summaryBands) and a full scripted run
 # scores about 1,900 with 6. These caps leave a lot of room over the longest day while
-# staying far below the island's own totals (data/spawns.json: 600, 152, 150, 39 and 27).
+# staying far below the island's own totals (data/spawns.json: 600, 152, 150, 39 and 27;
+# data/basilisks.json: 11 sites, a few of them about on a day).
 DAY = {
-    "species": {"cristatellus": 60, "sagrei": 40, "carolinensis": 25, "distichus": 12, "equestris": 10},
+    "species": {"cristatellus": 60, "sagrei": 40, "carolinensis": 25, "distichus": 12, "equestris": 10, "basilisk": 11},
     "caught": 60,
     "backpacks": 5,  # the bag holds 5 a day (RULES.inventory.backpacks)
     "stars": 9,  # three field-kit jobs of up to 3 stars each
 }
 
 # The score's cap follows the game's points (src/game/rules.js RULES.points):
-#  - a catch: its rarity points (crested 10, brown 25, green 50, bark and knight 100), less
+#  - a catch: its rarity points (crested 10, brown 25, green 50, bark, knight and basilisk 100), less
 #    for the same species again that day (x 1, 1, 0.5, 0.5, then 0.25), plus at most 70 in
 #    extras (crept up on 15, mid display 30, a perfect snug 10, the SVL spot on 5, the perch
 #    noted 5, the height taped 5);
 #  - 40 for the first of each species and 40 for each backpack fitted;
-#  - and everything else a day can score, at most about 6,500: 24 one-time task stamps at
-#    100 (2,400), James's three requests at 50 (150), the three field-kit jobs with their
+#  - and everything else a day can score, at most about 6,700: 26 one-time task stamps at
+#    100 (2,600), James's three requests at 50 (150), the three field-kit jobs with their
 #    requests, plants and scans (700), 12 loggers read and read again every 1.5 h (600),
 #    GPS downloads (600), perch loggers (150), lizards spotted at 5 each (1,500 for 300),
 #    crocodiles spotted (100) and recaptures (300).
-RARITY_POINTS = {"cristatellus": 10, "sagrei": 25, "carolinensis": 50, "distichus": 100, "equestris": 100}
+RARITY_POINTS = {"cristatellus": 10, "sagrei": 25, "carolinensis": 50, "distichus": 100, "equestris": 100, "basilisk": 100}
 REPEAT = (1, 1, 0.5, 0.5, 0.25)
 CATCH_EXTRAS = 70
 FIRST_OF_SPECIES = 40
 BACKPACK = 40
-DAY_EXTRA = 6500
+DAY_EXTRA = 6700
 TASK_STAMP = 100  # a research task stamped (RULES.points.task), in a notebook's parts.task
 
 
@@ -318,7 +325,8 @@ def check_day(body):
 # their cap are refused. Positions are the game's metres (x east, z south of the lake),
 # rounded to 0.5 m and kept inside the island's box.
 NB_VERSION = 1
-NB_SPECIES = {"crested": "cristatellus", "brown": "sagrei", "green": "carolinensis", "bark": "distichus", "knight": "equestris"}
+NB_SPECIES = {"crested": "cristatellus", "brown": "sagrei", "green": "carolinensis", "bark": "distichus", "knight": "equestris",
+              "basilisk": "basilisk"}
 NB_PERCH = ("trunk", "branch", "ground", "leaf", "palm_stem", "palm_frond", "log", "root")
 NB_SEX = ("m", "f")
 NB_DISPLAY = ("headbob", "pushup", "dewlap")
@@ -330,7 +338,7 @@ NB_NICKS = ("Pip", "Mango", "Biscuit", "Clover", "Nutmeg", "Sprout", "Pickle", "
 # the stamps a day can earn (src/game/tasks.js TASKS ids)
 NB_STAMPS = ("setup.kit", "setup.station", "setup.floss", "setup.practice",
              "crested.catch", "crested.dewlap", "crested.tag", "brown.ground", "brown.tag", "green.leaves", "green.catch",
-             "bark.spot", "bark.catch", "knight.canopy", "knight.tag", "croc.spot",
+             "bark.spot", "bark.catch", "knight.canopy", "knight.tag", "basilisk.catch", "basilisk.water", "croc.spot",
              "field.loggers", "field.display", "field.creep", "field.tape", "field.gps",
              "perch.sunshade", "perch.wholeday", "perch.species",
              "kit.drone", "kit.tls", "kit.rtk", "kit.stars")
@@ -762,6 +770,7 @@ CREATE TABLE IF NOT EXISTS scores (
   carolinensis INTEGER NOT NULL,
   distichus INTEGER NOT NULL,
   equestris INTEGER NOT NULL,
+  basilisk INTEGER NOT NULL DEFAULT 0,
   backpacks INTEGER NOT NULL,
   rarest TEXT,
   rarest_rank INTEGER NOT NULL,
@@ -829,19 +838,20 @@ class Board:
         self._tidied = False  # notebooks left without their day are tidied away once a process
 
     def _needs_migration(self, con):
-        """What an older database lacks: (no mode column, no notebooks table), or None
-        for a new or up-to-date one."""
+        """What an older database lacks: (no mode column, no notebooks table, no basilisk
+        column), or None for a new or up-to-date one."""
         tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
         if "scores" not in tables:
             return None
         cols = {r[1] for r in con.execute("PRAGMA table_info(scores)")}
-        need = ("mode" not in cols, "notebooks" not in tables)
+        need = ("mode" not in cols, "notebooks" not in tables, "basilisk" not in cols)
         return need if any(need) else None
 
     def _migrate(self, con):
-        """Brings a database from before Steady hands up to date in place: a dated copy
-        beside it first, then the mode column (every old day an assist day), the notebooks
-        table and its trigger, in one transaction. Every row is kept. The database's write
+        """Brings a database from before Steady hands or the basilisks up to date in place:
+        a dated copy beside it first, then the mode column (every old day an assist day), the
+        notebooks table and its trigger and the basilisk column (none on every old day), in
+        one transaction. Every row is kept. The database's write
         lock is held from before the copy to the end, so another process opening it at the
         same moment (the server starting while the daily backup runs, say) waits, then finds
         it done and makes no copy of its own. One thread here tries at a time; the others,
@@ -863,11 +873,13 @@ class Board:
                 if self._copy and time.monotonic() - self._copy[1] < 600 and os.path.exists(self._copy[0]):
                     dest = self._copy[0]
                 else:
-                    dest = self._copy_before(con)
+                    dest = self._copy_before(con, "steady" if need[0] or need[1] else "basilisk")
                 if need[0]:
                     con.execute("ALTER TABLE scores ADD COLUMN mode TEXT NOT NULL DEFAULT 'assist'")
                 if need[1]:
                     con.execute("CREATE TABLE IF NOT EXISTS notebooks (id INTEGER PRIMARY KEY, key TEXT NOT NULL UNIQUE, body TEXT NOT NULL)")
+                if need[2]:
+                    con.execute("ALTER TABLE scores ADD COLUMN basilisk INTEGER NOT NULL DEFAULT 0")
                 con.execute(NB_TRIGGER.strip())
                 n = con.execute("SELECT COUNT(*) FROM scores").fetchone()[0]
                 con.execute("COMMIT")
@@ -883,19 +895,23 @@ class Board:
         self.migrated = dest
         self._copy = None
         self.version += 1
-        log(f"brought the database up to date for Steady hands and notebooks ({n} days kept, "
-            f"each an assist day with no notebook); the copy from before is {dest}")
+        if need[0] or need[1]:
+            log(f"brought the database up to date for Steady hands, notebooks and basilisks ({n} days kept, "
+                f"each an assist day with no notebook and no basilisk); the copy from before is {dest}")
+        else:
+            log(f"brought the database up to date for basilisks ({n} days kept, each with no basilisk); "
+                f"the copy from before is {dest}")
 
-    def _copy_before(self, con):
+    def _copy_before(self, con, why="steady"):
         """The dated copy made before an update, beside the database (mode 600). con holds
         the write lock, so the copy is read through a second connection (readers may read
         while a writer waits to write)."""
         stem = os.path.splitext(self.path)[0]
-        dest = stem + time.strftime("-before-steady-%Y%m%d-%H%M%S.db")
+        dest = stem + time.strftime(f"-before-{why}-%Y%m%d-%H%M%S.db")
         k = 1
         while os.path.exists(dest):
             k += 1
-            dest = stem + time.strftime("-before-steady-%Y%m%d-%H%M%S") + f"-{k}.db"
+            dest = stem + time.strftime(f"-before-{why}-%Y%m%d-%H%M%S") + f"-{k}.db"
         src = sqlite3.connect(self.path, timeout=3.0)
         try:
             out = sqlite3.connect(dest)
@@ -1219,7 +1235,7 @@ class Board:
             try:
                 r = con.execute(
                     "SELECT s.name, s.score, s.species_n, s.caught, s.mode, s.cristatellus, s.sagrei, s.carolinensis, "
-                    "s.distichus, s.equestris, n.body FROM notebooks AS n JOIN scores AS s ON s.id = n.id WHERE n.key = ?",
+                    "s.distichus, s.equestris, s.basilisk, n.body FROM notebooks AS n JOIN scores AS s ON s.id = n.id WHERE n.key = ?",
                     (key,)).fetchone()
             finally:
                 con.close()

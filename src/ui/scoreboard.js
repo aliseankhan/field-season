@@ -33,14 +33,15 @@ import { currentPanel } from './kit.js';
 import { daySnapshot } from '../game/daylog.js';
 import { openDaybook, daybookOpen } from './daybook.js';
 
-const EPITHETS = ['cristatellus', 'sagrei', 'carolinensis', 'distichus', 'equestris'];
-const SHORT = { cristatellus: 'Crested', sagrei: 'Brown', carolinensis: 'Green', distichus: 'Bark', equestris: 'Knight' };
+const EPITHETS = ['cristatellus', 'sagrei', 'carolinensis', 'distichus', 'equestris', 'basilisk'];
+const SHORT = { cristatellus: 'Crested', sagrei: 'Brown', carolinensis: 'Green', distichus: 'Bark', equestris: 'Knight', basilisk: 'Basilisk' };
+const LONG_NAME = (ep) => (ep === 'basilisk' ? 'Brown basilisk' : `${SHORT[ep]} anole`);
 // (the server still answers board=backpacks for older copies of the game; this one shows
 // Steady hands in its place)
 export const BOARDS = [
   { id: 'best', label: 'Best day', icon: 'star', cap: 'Each player\'s best day · dots: species caught' },
   { id: 'species', label: 'Most species', icon: 'lizard', cap: 'Species caught in a day · dots: which ones' },
-  { id: 'rarest', label: 'Rarest catch', icon: 'eye', cap: 'The rarest anole caught in a day' },
+  { id: 'rarest', label: 'Rarest catch', icon: 'eye', cap: 'The rarest lizard caught in a day' },
   { id: 'steady', label: 'Steady hands', icon: 'hand', cap: 'Days played with Precise aiming' },
 ];
 const BOARD_IDS = BOARDS.map((b) => b.id);
@@ -157,6 +158,12 @@ export async function postDay(numbers) {
   // before the notebooks and Steady hands refuses both fields: then the mode goes too)
   const { notebook, ...plain } = numbers;
   const said = (...errors) => code === 400 && !!body && errors.includes(body.error);
+  // (a board from before the basilisks knows none of their stamps: a day that only
+  // watched one run keeps its notebook there without them)
+  const bas = (s) => /^basilisk\./.test(s);
+  if (notebook && Array.isArray(notebook.stamps) && notebook.stamps.some(bas) && said('notebook')) {
+    ({ status: code, body, retry } = await send({ ...numbers, notebook: { ...notebook, stamps: notebook.stamps.filter((s) => !bas(s)) } }));
+  }
   if (notebook && (code === 413 || said('notebook', 'body'))) ({ status: code, body, retry } = await send(plain));
   if (plain.mode && said('body', 'mode')) {
     const { mode, ...older } = plain;
@@ -208,10 +215,14 @@ export function dayNumbers(name = state.playerName) {
   const species = {};
   let rarest = null;
   for (const ep of EPITHETS) {
-    const key = SPECIES_KEY[ep];
-    species[ep] = count(caught[key] ?? caught[ep]);
+    const key = SPECIES_KEY[ep] || ep;
+    const n = count(caught[key] ?? caught[ep]);
+    // (a basilisk only when there is one: an older board refuses the name, so a day
+    // without one still goes up there)
+    if (ep === 'basilisk' && !n) continue;
+    species[ep] = n;
     const rec = (RULES.rarity[key] || {}).records ?? Infinity;
-    if (species[ep] > 0 && (!rarest || rec < rarest.rec)) rarest = { ep, rec };
+    if (n > 0 && (!rarest || rec < rarest.rec)) rarest = { ep, rec };
   }
   let stars = 0;
   for (const v of Object.values(T.kit || {})) stars += Math.max(0, Math.min(3, count(v)));
@@ -273,7 +284,7 @@ const num = (n) => Number(n || 0).toLocaleString('en-GB');
 function dots(kinds) {
   const have = new Set(Array.isArray(kinds) ? kinds : []);
   return '<span class="sb-dots" aria-hidden="true">' + EPITHETS.map((ep) =>
-    `<i class="${have.has(ep) ? 'is-on' : ''}" style="--c:${spColour(ep)}" title="${SHORT[ep]} anole"></i>`).join('') + '</span>';
+    `<i class="${have.has(ep) ? 'is-on' : ''}" style="--c:${spColour(ep)}" title="${LONG_NAME(ep)}"></i>`).join('') + '</span>';
 }
 
 function value(r, kind) {

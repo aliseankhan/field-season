@@ -16,7 +16,8 @@
 //       input: { placeholder, maxLength, value } resolves with the typed text.
 //       onLine(i) is called as each line starts (the story moves its camera with it).
 //       Otherwise resolves true.
-//   toast(text, { icon, tone })     tone good | gold | warn | info; [Key] marks become key caps
+//   toast(text, { icon, tone, portrait })  tone good | gold | warn | info | snap; [Key] marks
+//                                   become key caps; portrait ('james', 'jon') in place of the icon
 //   hint(text | null)               the pill at the bottom of the screen (cheap to call every frame)
 //   stamp(label, { tone, icon })    an ink stamp slammed onto the screen
 //   registerPanel(id, spec), openPanel(id, arg) -> Promise, closePanel(value), currentPanel()
@@ -35,7 +36,7 @@
 
 import { events } from '../core/events.js';
 import { icon, iconBody, escapeHtml, richText } from './icons.js';
-import { jamesPortrait, playerBadge } from './drawings.js';
+import { jamesPortrait, jonPortrait, playerBadge } from './drawings.js';
 
 export const vars = { name: '', looks: null };
 // The settings the kit follows (ui/settings.js sets them): how fast James's lines type
@@ -114,9 +115,10 @@ export function dialogue(opts = {}) {
 }
 
 function portraitFor(opts) {
-  const p = opts.portrait !== undefined ? opts.portrait : /^james$/i.test(opts.speaker || '') ? 'james' : null;
+  const p = opts.portrait !== undefined ? opts.portrait : /^(james|jon)$/i.test(opts.speaker || '') ? opts.speaker.toLowerCase() : null;
   if (!p) return '';
   if (p === 'james') return jamesPortrait();
+  if (p === 'jon') return jonPortrait();
   if (p === 'player') return playerBadge(vars.looks || {});
   return String(p); // markup
 }
@@ -351,7 +353,7 @@ function nextDialogue() {
 const TOAST_MAX = 4;
 let toastBatch = null;
 const toastRank = (tone, ic) => (tone === 'gold' ? (ic === 'star' ? 2 : 1) : 0);
-export function toast(text, { icon: ic = 'leaf', tone = 'good', ms = 2800 } = {}) {
+export function toast(text, { icon: ic = 'leaf', tone = 'good', ms = 2800, portrait = null } = {}) {
   const words = fill(text).trim();
   if (!words) return null;
   const host = layer('toasts', 'ui-toasts');
@@ -368,7 +370,8 @@ export function toast(text, { icon: ic = 'leaf', tone = 'good', ms = 2800 } = {}
   while (host.children.length >= TOAST_MAX) host.firstElementChild.remove();
   const el = h('div', `ui-toast tone-${tone}`);
   el.dataset.text = words;
-  el.innerHTML = `<span class="ui-toast-icon">${icon(ic)}</span><span>${richText(words)}</span>`;
+  el.innerHTML = portrait ? `<span class="ui-toast-icon is-portrait">${portraitFor({ portrait })}</span><span>${richText(words)}</span>`
+    : `<span class="ui-toast-icon">${icon(ic)}</span><span>${richText(words)}</span>`;
   if (!toastBatch) {
     toastBatch = [];
     queueMicrotask(() => { toastBatch = null; });

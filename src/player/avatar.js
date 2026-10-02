@@ -459,13 +459,23 @@ export function buildAvatar() {
     B.armR.rotation.z = 0.1;
     const poleLean = 0.5 + 0.3 * c + 0.03 * Math.sin(phase * 2) * move;
     B.pole.rotation.x = -B.armR.rotation.x - poleLean;
+    B.pole.rotation.y = 0; // (aimPose turns the pole and the loop about y as well; carried, they have none)
     B.pole.rotation.z = -0.1;
     // Keep the loop hanging upright below the tip, swinging a little.
     B.loop.rotation.x = poleLean - B.spine.rotation.x + 0.18 * Math.sin(phase * 2 + 0.6) * move + 0.05 * Math.sin(t * 1.3);
+    B.loop.rotation.y = 0;
     B.loop.rotation.z = 0.1 - B.armR.rotation.z + 0.06 * Math.sin(t * 0.9 + 1);
     toolPose(dt, swing, sR, c);
     if (aim.weight > 1e-3) aimPose();
     else if (aimSet) { B.pole.position.copy(base.pole); B.loop.scale.setScalar(loopOn); aimSet = false; }
+    // a creaking pole shakes in the hands (src/catch/breaks.js sets aim.wobble)
+    if (aim.wobble > 0) B.pole.rotation.z += aim.wobble * 0.07 * Math.sin(t * 34);
+    // and kicks back as a snapped floss loop lets go (breaks.js sets aim.recoil to 1)
+    if (aim.recoil > 0) {
+      aim.recoil = Math.max(0, aim.recoil - dt * 2.2);
+      const k = aim.recoil;
+      B.pole.rotation.x += 0.3 * k * k * Math.cos((1 - k) * 13);
+    }
   }
 
   // The floss loop on the pole: off until it is tied on the set-up day.
@@ -479,8 +489,9 @@ export function buildAvatar() {
   // meets aim.tip (model frame, metres, facing -z), sliding it through the hands for a
   // near target, and the loop hangs from the tip, swinging by aim.swingX and swingZ
   // (radians about the model's x and z) and drawn aim.snug times its size.
-  // aim.tipOut is where the tip went.
-  const aim = { weight: 0, tip: new THREE.Vector3(0.3, 2.2, -1.9), swingX: 0, swingZ: 0, snug: 1, tipOut: new THREE.Vector3() };
+  // aim.tipOut is where the tip went; aim.wobble (0..1) shakes the pole, held up or not, and
+  // aim.recoil (1, easing to 0) kicks it back.
+  const aim = { weight: 0, tip: new THREE.Vector3(0.3, 2.2, -1.9), swingX: 0, swingZ: 0, snug: 1, tipOut: new THREE.Vector3(), wobble: 0, recoil: 0 };
   const ARM_CHAIN = ['root', 'hips', 'spine', 'armR'];
   const POLE_TIP = 2.3; // hand to tip
   const _mArm = new THREE.Matrix4(), _qArm = new THREE.Quaternion(), _qWant = new THREE.Quaternion(), _qPM = new THREE.Quaternion();

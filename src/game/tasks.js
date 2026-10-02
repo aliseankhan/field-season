@@ -71,6 +71,11 @@ export const TASKS = [
   { id: 'kit.tls', group: 'kit', mission: 'tls', icon: 'tls', label: 'Make 3 laser scans', stamp: 'Scanned!', goal: 1, on: 'mission:done', test: (e) => !!e && e.id === 'tls' },
   { id: 'kit.rtk', group: 'kit', mission: 'rtk', icon: 'rtk', label: 'Record 5 plants with the RTK rover', stamp: 'Botanist', goal: 1, on: 'mission:done', test: (e) => !!e && e.id === 'rtk' },
   { id: 'kit.stars', group: 'kit', icon: 'star', label: 'Three stars on a field-kit job', stamp: 'Top kit', goal: 1, on: 'mission:done', test: (e) => !!e && Number(e.stars) >= 3 },
+
+  // the brown basilisks (src/wildlife/basilisk.js), last so the Today card picks them only
+  // when nothing else is open; the notebook shows them once a basilisk has been seen
+  { id: 'basilisk.catch', group: 'species', species: 'basilisk', label: 'Catch a brown basilisk', stamp: 'Basilisk!', goal: 1, on: 'lizard:caught', test: isSp('basilisk') },
+  { id: 'basilisk.water', group: 'species', species: 'basilisk', label: 'Watch a basilisk run across the water', stamp: 'Water runner', goal: 1, on: 'basilisk:waterrun' },
 ];
 
 // James's requests, a few drawn each survey day. when(state): offered at all today.
@@ -140,7 +145,7 @@ export function buildTasks(game) {
       if (task.group !== 'setup') addScore(RULES.points.task, 'task');
       events.emit('task:done', { id: task.id, task });
       kit.stamp(task.stamp || 'Done', {
-        tone: task.group === 'setup' ? 'green' : task.group === 'kit' ? 'blue' : task.species === 'knight' || task.species === 'bark' ? 'gold' : 'red',
+        tone: task.group === 'setup' ? 'green' : task.group === 'kit' ? 'blue' : task.species === 'knight' || task.species === 'bark' || task.species === 'basilisk' ? 'gold' : 'red',
         icon: task.icon || (task.species === 'croc' ? 'croc' : task.group === 'setup' ? 'check' : 'lizard'),
       });
       // (a field-kit job's stamp stands for its task: James's word on it is its one toast)

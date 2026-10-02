@@ -1,5 +1,5 @@
 // James, the lab's lead scientist, as a cute low-poly field biologist (a stylised
-// character, not a likeness): a backwards dark cap, a khaki-grey field shirt with
+// character, not a likeness): blonde, a backwards dark cap, a khaki-grey field shirt with
 // rolled sleeves, light stubble, a big grin and a loop pole. One skinned mesh
 // with a bone per part and a thin inverted-hull outline on the same skeleton: two
 // draw calls. He idles at the field station, turns to face you, waves, talks with
@@ -16,8 +16,8 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { toonGradient } from '../player/avatar.js';
 
 const COL = {
-  skin: '#eab28c', stubble: '#d9a790', stubbleDot: '#b88d7d', cheek: '#ff9a8a', eye: '#2b2320', shine: '#ffffff', brow: '#4a3326',
-  mouth: '#7a3431', teeth: '#fffaf0', tongue: '#ff8c8c', hair: '#4a3326',
+  skin: '#eab28c', stubble: '#dcae8e', stubbleDot: '#c99a72', cheek: '#ff9a8a', eye: '#2b2320', shine: '#ffffff', brow: '#9a7448',
+  mouth: '#7a3431', teeth: '#fffaf0', tongue: '#ff8c8c', hair: '#e8cb84', hairEdge: '#a8854f',
   cap: '#2d3139', capStrap: '#434a55', capButton: '#3a4049',
   shirt: '#b9b49c', collar: '#cbc5ab', placket: '#a29d85', button: '#f1ecdc', pocket: '#aaa58c', cuff: '#d2ccb2',
   trousers: '#6c6852', belt: '#4d3a2c', buckle: '#d9c38a', boot: '#7a5236', sole: '#3f2c22', lace: '#efe3c6',
@@ -46,7 +46,7 @@ const BONES = [
 const BI = Object.fromEntries(BONES.map((b, i) => [b[0], i]));
 const L_THIGH = 0.21, L_SHIN = 0.21, ANKLE_Y = 0.09;
 const OUTLINE = 0.013;
-const HEAD = { c: [0, 1.3, 0], r: [0.28 * 1.03, 0.28 * 0.95, 0.28 * 0.97] };
+export const HEAD = { c: [0, 1.3, 0], r: [0.28 * 1.03, 0.28 * 0.95, 0.28 * 0.97] };
 const WALK_SPEED = 1.35;
 const HIDE = 1e-4;
 
@@ -54,17 +54,81 @@ const HIDE = 1e-4;
 
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler();
 const _p = new THREE.Vector3(), _s = new THREE.Vector3();
-function place(geo, x, y, z, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0) {
+export function place(geo, x, y, z, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0) {
   _m.compose(_p.set(x, y, z), _q.setFromEuler(_e.set(rx, ry, rz)), _s.set(sx, sy, sz));
   geo.applyMatrix4(_m);
   return geo;
 }
-const cyl = (rt, rb, y0, y1, x = 0, z = 0, seg = 10) => place(new THREE.CylinderGeometry(rt, rb, y1 - y0, seg, 1), x, (y0 + y1) / 2, z);
-const sph = (r, x, y, z, sx = 1, sy = 1, sz = 1, detail = 1) => place(new THREE.IcosahedronGeometry(r, detail), x, y, z, sx, sy, sz);
-const rbox = (w, h, d, rad, x, y, z, rx = 0, ry = 0, rz = 0) => place(new RoundedBoxGeometry(w, h, d, 2, rad), x, y, z, 1, 1, 1, rx, ry, rz);
-const shell = (r, phi0, phiLen, th0, thLen, x, y, z, sx, sy, sz, w = 18, h = 10) =>
+export const cyl = (rt, rb, y0, y1, x = 0, z = 0, seg = 10) => place(new THREE.CylinderGeometry(rt, rb, y1 - y0, seg, 1), x, (y0 + y1) / 2, z);
+export const sph = (r, x, y, z, sx = 1, sy = 1, sz = 1, detail = 1) => place(new THREE.IcosahedronGeometry(r, detail), x, y, z, sx, sy, sz);
+export const rbox = (w, h, d, rad, x, y, z, rx = 0, ry = 0, rz = 0) => place(new RoundedBoxGeometry(w, h, d, 2, rad), x, y, z, 1, 1, 1, rx, ry, rz);
+export const shell = (r, phi0, phiLen, th0, thLen, x, y, z, sx, sy, sz, w = 18, h = 10) =>
   place(new THREE.SphereGeometry(r, w, h, phi0, phiLen, th0, thLen), x, y, z, sx, sy, sz);
-const tube = (pts, r, seg = 20) => new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map((p) => new THREE.Vector3(...p))), seg, r, 5, false);
+export const tube = (pts, r, seg = 20) => new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map((p) => new THREE.Vector3(...p))), seg, r, 5, false);
+
+// The hair, a short neat crop: a shell over the head ellipsoid (k times its size, close to
+// it) down to a hairline just under the cap's band in front, above the ears at the sides
+// and a short line at the nape below the peak. HAIRLINE: [azimuth from the front, polar
+// angle from the crown] in degrees, for one side (mirrored). LIFT stands the front edge
+// up a little: the small lift at the front.
+const HAIRLINE = [[0, 66], [30, 67], [55, 75], [80, 81], [105, 84], [130, 99], [180, 110]];
+const LIFT = 0.045;
+function hairEdge(a, line = HAIRLINE) {
+  a = Math.abs(a);
+  for (let i = 1; i < line.length; i++) {
+    const [a0, t0] = line[i - 1], [a1, t1] = line[i];
+    if (a <= a1) return t0 + (t1 - t0) * smooth(a0, a1, a);
+  }
+  return line[line.length - 1][1];
+}
+// a point on the head ellipsoid (scaled by k) at azimuth a (from the front, towards +x) and
+// polar angle t (from the crown), both in degrees
+export function onScalp(a, t, k = 1) {
+  const A = (a * Math.PI) / 180, T = (t * Math.PI) / 180, [cx, cy, cz] = HEAD.c, [rx, ry, rz] = HEAD.r;
+  return [cx + Math.sin(T) * Math.sin(A) * rx * k, cy + Math.cos(T) * ry * k, cz - Math.sin(T) * Math.cos(A) * rz * k];
+}
+// Built straight into one unindexed geometry, with the ellipsoid's own normals and its own
+// vertex colours: the hair, darkening over the last centimetre to a soft edge so the
+// short hairline reads against the skin. (line and lift: another hairline, for Jon)
+export function scalp(k, colour, edgeColour, w = 48, h = 8, line = HAIRLINE, lift = LIFT) {
+  const [cx, cy, cz] = HEAD.c, [rx, ry, rz] = HEAD.r;
+  const c0 = new THREE.Color(colour), c1 = new THREE.Color(edgeColour);
+  const cols = [];
+  for (let i = 0; i <= w; i++) {
+    const a = -180 + (360 * i) / w, edge = hairEdge(a, line), front = Math.max(0, Math.cos((a * Math.PI) / 180)) ** 4, col = [];
+    for (let j = 0; j <= h; j++) {
+      const f = j < h ? (0.96 * j) / (h - 1) : 1; // the last ring a hair's breadth from the one before
+      const p = onScalp(a, edge * f, k + lift * front * f ** 3);
+      const n = new THREE.Vector3((p[0] - cx) / (rx * rx), (p[1] - cy) / (ry * ry), (p[2] - cz) / (rz * rz)).normalize();
+      col.push([p, [n.x, n.y, n.z], j < h ? c0 : c1]);
+    }
+    cols.push(col);
+  }
+  const pos = [], nor = [], rgb = [];
+  const tri = (...vs) => { for (const [p, n, c] of vs) { pos.push(...p); nor.push(...n); rgb.push(c.r, c.g, c.b); } };
+  for (let i = 0; i < w; i++) {
+    for (let j = 0; j < h; j++) {
+      const a0 = cols[i][j], a1 = cols[i][j + 1], b0 = cols[i + 1][j], b1 = cols[i + 1][j + 1];
+      if (j > 0) tri(a0, b0, a1); // (the first row meets at the crown)
+      tri(b0, b1, a1);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(rgb, 3));
+  return g;
+}
+// The cap sits a little back on his head: up a touch and tipped back, so the hairline
+// shows under the band in front while the peak stays low over the nape.
+const CAP = { pivot: [0, 1.38, 0.01], lift: 0.035, tilt: 0.22 };
+function capped(geo) {
+  const [px, py, pz] = CAP.pivot;
+  geo.translate(-px, -py, -pz);
+  geo.rotateX(CAP.tilt);
+  geo.translate(px, py + CAP.lift, pz);
+  return geo;
+}
 
 // Wraps a flat shape drawn facing -z onto the front of the head, lifted off it.
 function onHead(geo, lift) {
@@ -79,11 +143,19 @@ function onHead(geo, lift) {
   return geo;
 }
 
-function buildGeometry() {
+// A character's parts on the rig's bones: add(bone, colour, geometry, options), then
+// mergeParts(parts) makes the one skinned geometry. speckle: [colour, share] paints that
+// share of the part's triangles in a second colour; paint(x, y, z) -> THREE.Color colours
+// each triangle by where its middle is (a checked shirt).
+export function partList() {
   const parts = [];
-  // speckle: [colour, share] paints that share of the part's triangles in a second colour
-  const add = (bone, color, geo, { smooth = false, outline = 0.6, speckle = null } = {}) =>
-    parts.push({ bone: BI[bone], color: new THREE.Color(color), geo, smooth, outline, speckle: speckle && [new THREE.Color(speckle[0]), speckle[1]] });
+  const add = (bone, color, geo, { smooth = false, outline = 0.6, speckle = null, paint = null } = {}) =>
+    parts.push({ bone: BI[bone], color: new THREE.Color(color), geo, smooth, outline, speckle: speckle && [new THREE.Color(speckle[0]), speckle[1]], paint });
+  return { parts, add };
+}
+
+function buildGeometry() {
+  const { parts, add } = partList();
 
   // legs: field trousers, boots with laces
   for (const [side, sx] of [['L', -0.1], ['R', 0.1]]) {
@@ -127,16 +199,19 @@ function buildGeometry() {
   // the stubble: a cooler, darker band round the jaw and chin, speckled so it reads at a
   // distance as a light beard shadow
   add('head', COL.stubble, shell(0.2814, 1.5 * Math.PI - 0.85, 1.7, 0.69 * Math.PI, 0.23 * Math.PI, ...HEAD.c, 1.03, 0.95, 0.97, 30, 7), { smooth: true, outline: 0, speckle: [COL.stubbleDot, 0.22] });
-  add('head', COL.hair, sph(0.29, 0, 1.33, 0.045, 1.03, 0.94, 0.97, 3), { smooth: true, outline: 1 });
+  // the sandy blonde hair, short and neat: a tidy hairline under the band in front, a
+  // close strip above the ears and a short line at the nape; neat short sideburns that
+  // stop above the middle of the ear
+  add('head', COL.hair, scalp(1.03, COL.hair, COL.hairEdge), { smooth: true, outline: 0.5 });
   for (const s of [-1, 1]) {
-    add('head', COL.hair, rbox(0.035, 0.1, 0.07, 0.015, s * 0.272, 1.27, -0.03, 0, 0, 0), { outline: 0 });
+    add('head', COL.hair, rbox(0.014, 0.04, 0.034, 0.006, s * 0.281, 1.333, -0.05, 0, s * -0.2, 0), { smooth: true, outline: 0 });
     add('head', COL.skin, sph(0.052, s * 0.288, 1.285, 0.015, 0.55, 1, 0.9, 1), { smooth: true, outline: 0.8 });
   }
   for (const x of [-0.1, 0.1]) {
     add('head', COL.eye, sph(0.041, x, 1.325, -0.255, 0.85, 1.05, 0.5, 2), { smooth: true, outline: 0 });
     add('head', COL.shine, sph(0.013, x + 0.013, 1.342, -0.273, 1, 1, 0.5, 1), { smooth: true, outline: 0 });
     add('head', COL.cheek, sph(0.036, x * 1.72, 1.245, -0.22, 1, 0.6, 0.45, 2), { smooth: true, outline: 0 });
-    add('head', COL.brow, rbox(0.075, 0.018, 0.02, 0.008, x, 1.41, -0.252, -0.2, 0, x > 0 ? 0.12 : -0.12), { outline: 0 });
+    add('head', COL.brow, rbox(0.074, 0.014, 0.016, 0.006, x, 1.398, -0.249, -0.25, 0, x > 0 ? 0.1 : -0.1), { outline: 0 });
   }
   add('head', COL.skin, sph(0.024, 0, 1.275, -0.284, 1.1, 0.9, 0.9, 1), { smooth: true, outline: 0 });
   // the grin: a wide open smile with a row of teeth and a pink tongue, wrapped onto the face
@@ -144,14 +219,14 @@ function buildGeometry() {
   add('head', COL.teeth, onHead(place(new THREE.PlaneGeometry(0.152, 0.026, 10, 1), 0, 1.208, -0.3), 0.0065), { outline: 0 });
   add('head', COL.tongue, onHead(place(new THREE.CircleGeometry(0.04, 12, Math.PI, Math.PI), 0, 1.172, -0.3, 1.25, 0.6, 1), 0.006), { outline: 0 });
 
-  // the cap, on backwards: a dark crown, band and button, the peak over the nape, and
-  // the strap gap over the forehead with hair showing through it
-  add('head', COL.cap, shell(0.302, 0, 2 * Math.PI, 0, 0.5 * Math.PI, 0, 1.4, 0.01, 1.02, 0.72, 1.0, 20, 6), { smooth: true, outline: 0.8 });
-  add('head', COL.cap, cyl(0.302, 0.305, 1.36, 1.41, 0, 0.01, 20), { outline: 0.5 });
-  add('head', COL.capButton, sph(0.026, 0, 1.617, 0.01, 1, 0.6, 1, 1), { smooth: true, outline: 0 });
-  add('head', COL.cap, place(new THREE.CylinderGeometry(0.21, 0.21, 0.024, 20, 1, false, -Math.PI / 2, Math.PI), 0, 1.4, 0.3, 1.05, 1, 1.35, 0.3, 0, 0), { outline: 0.4 });
-  add('head', COL.hair, sph(0.048, 0, 1.43, -0.283, 1.35, 0.75, 0.4, 1), { smooth: true, outline: 0 });
-  add('head', COL.capStrap, rbox(0.13, 0.02, 0.012, 0.006, 0, 1.392, -0.3), { outline: 0 });
+  // the cap, on backwards and a little back: a dark crown, band and button, the peak over
+  // the nape, and the strap gap over the forehead with his hair showing through it
+  add('head', COL.cap, capped(shell(0.302, 0, 2 * Math.PI, 0, 0.5 * Math.PI, 0, 1.4, 0.01, 1.02, 0.72, 1.0, 20, 6)), { smooth: true, outline: 0.8 });
+  add('head', COL.cap, capped(cyl(0.302, 0.305, 1.36, 1.41, 0, 0.01, 20)), { outline: 0.5 });
+  add('head', COL.capButton, capped(sph(0.026, 0, 1.617, 0.01, 1, 0.6, 1, 1)), { smooth: true, outline: 0 });
+  add('head', COL.cap, capped(place(new THREE.CylinderGeometry(0.21, 0.21, 0.024, 20, 1, false, -Math.PI / 2, Math.PI), 0, 1.4, 0.3, 1.05, 1, 1.35, 0.3, 0, 0)), { outline: 0.4 });
+  add('head', COL.hair, capped(sph(0.06, 0, 1.415, -0.29, 1.55, 1.0, 0.36, 2)), { smooth: true, outline: 0 });
+  add('head', COL.capStrap, capped(rbox(0.17, 0.022, 0.016, 0.007, 0, 1.372, -0.318)), { outline: 0 });
 
   // the loop pole, planted by his right foot, the coral loop hanging from the tip
   const px = 0.25, pz = -0.02;
@@ -203,7 +278,11 @@ function buildGeometry() {
     add('bag', COL.lizardDark, sph(0.009, lz[0] + ox, lz[1] + oy, lz[2] - 0.005, 1.4, 0.8, 1, 0), { outline: 0 });
   }
 
-  // merge into one non-indexed geometry with skin weights and an outline direction
+  return mergeParts(parts);
+}
+
+// merge into one non-indexed geometry with skin weights and an outline direction
+export function mergeParts(parts) {
   let n = 0;
   const flat = parts.map((p) => {
     const g = p.geo.index ? p.geo.toNonIndexed() : p.geo;
@@ -218,8 +297,8 @@ function buildGeometry() {
   });
   const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3), oln = new Float32Array(n * 3);
   const si = new Uint16Array(n * 4), sw = new Float32Array(n * 4);
-  const v = new THREE.Vector3(), rad = new THREE.Vector3();
-  let o = 0;
+  const v = new THREE.Vector3(), rad = new THREE.Vector3(), _own = new THREE.Color(), mid = new THREE.Vector3();
+  let o = 0, painted = null;
   for (const p of flat) {
     const a = p.geo.attributes;
     pos.set(a.position.array, o * 3);
@@ -229,7 +308,12 @@ function buildGeometry() {
       const j = o + k;
       // a speckled part: some whole triangles in the second colour (a fixed hash)
       const tri = (k / 3) | 0;
-      const cc = p.speckle && ((Math.imul(tri + 7, 2654435761) >>> 0) % 1000) / 1000 < p.speckle[1] ? p.speckle[0] : p.color;
+      // (a part may bring its own vertex colours: the hair's soft edge)
+      if (p.paint && k % 3 === 0) {
+        mid.fromBufferAttribute(a.position, k).add(v.fromBufferAttribute(a.position, k + 1)).add(v.fromBufferAttribute(a.position, k + 2)).multiplyScalar(1 / 3);
+        painted = p.paint(mid.x, mid.y, mid.z);
+      }
+      const cc = a.color ? _own.fromBufferAttribute(a.color, k) : p.paint ? painted : p.speckle && ((Math.imul(tri + 7, 2654435761) >>> 0) % 1000) / 1000 < p.speckle[1] ? p.speckle[0] : p.color;
       col[j * 3] = cc.r; col[j * 3 + 1] = cc.g; col[j * 3 + 2] = cc.b;
       si[j * 4] = p.bone;
       sw[j * 4] = 1;
@@ -280,10 +364,14 @@ function legIK(f, D, out) {
 
 // ---------------------------------------------------------------- James
 
-export function buildJames(game) {
+// opts (for another character on the same rig, Jon): geometry (a function returning the
+// merged geometry), name, bag: false (no lizard bag held up to the light), solid: false
+// (no collision circle)
+export function buildJames(game, opts = {}) {
   const { data, collision, player } = game;
   const T = data.terrain;
-  const geo = buildGeometry();
+  const name = opts.name || 'james';
+  const geo = (opts.geometry || buildGeometry)();
   const mat = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: toonGradient() });
   mat.shadowSide = THREE.BackSide;
   const bones = BONES.map(([name, parent, p]) => {
@@ -296,18 +384,18 @@ export function buildJames(game) {
   BONES.forEach(([, parent], i) => { if (parent >= 0) bones[parent].add(bones[i]); });
   const skeleton = new THREE.Skeleton(bones);
   const mesh = new THREE.SkinnedMesh(geo, mat);
-  mesh.name = 'james';
+  mesh.name = name;
   mesh.add(bones[0]);
   mesh.bind(skeleton);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   mesh.frustumCulled = false;
   const outline = new THREE.SkinnedMesh(geo, outlineMaterial());
-  outline.name = 'james-outline';
+  outline.name = name + '-outline';
   outline.bind(skeleton, mesh.bindMatrix);
   outline.frustumCulled = false;
   const group = new THREE.Group();
-  group.name = 'james';
+  group.name = name;
   group.add(mesh, outline);
 
   const B = Object.fromEntries(bones.map((b) => [b.name, b]));
@@ -318,7 +406,7 @@ export function buildJames(game) {
   const home = { x: 0, z: 0, heading: 0 };
   // the numbers that change every frame, in one object (closure lets holding numbers
   // that change each frame would be boxed anew every frame)
-  const st = { heading: 0, phase: 0, move: 0, bagT: 0, bagK: 0, nextBag: 9 + Math.random() * 8, waveT: 0, waveK: 0, talkK: 0, talkT: 0, pole: 1 };
+  const st = { heading: 0, phase: 0, move: 0, bagT: 0, bagK: 0, nextBag: opts.bag === false ? Infinity : 9 + Math.random() * 8, waveT: 0, waveK: 0, talkK: 0, talkT: 0, pole: 1 };
   let walk = null; // { x, z, resolve }
   let faceYaw = null;
   let collider = null; // a moving solid circle (collision.addDynamic)
@@ -331,7 +419,7 @@ export function buildJames(game) {
     group.position.copy(position);
     group.rotation.y = st.heading;
     if (collision && collision.addDynamic) {
-      if (!collider) collider = collision.addDynamic(position.x, position.z, 0.3);
+      if (!collider) collider = collision.addDynamic(position.x, position.z, james.solid ? 0.3 : 0);
       else collision.setDynamic(collider, position.x, position.z, james.solid ? 0.3 : 0);
     }
   }
@@ -348,7 +436,7 @@ export function buildJames(game) {
     group, mesh, outline, bones: B, position, home,
     get heading() { return st.heading; },
     talking: false,
-    solid: true,
+    solid: opts.solid !== false,
     lookAtPlayer: true,
     headPosition(out) { return out.set(position.x, position.y + 1.4, position.z); },
 

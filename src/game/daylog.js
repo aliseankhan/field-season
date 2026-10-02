@@ -20,7 +20,7 @@ import { state, speciesKey, blankDiary, RULES } from './state.js';
 import { NICKNAMES } from '../catch/tuning.js';
 
 export const SNAPSHOT_VERSION = 1;
-const SPECIES = ['crested', 'brown', 'green', 'bark', 'knight'];
+const SPECIES = ['crested', 'brown', 'green', 'bark', 'knight', 'basilisk'];
 const PERCHES = ['trunk', 'branch', 'ground', 'leaf', 'palm_stem', 'palm_frond', 'log', 'root'];
 const DISPLAYS = ['headbob', 'pushup', 'dewlap'];
 const KINDS = ['sunny', 'shady', 'dappled'];
@@ -28,7 +28,7 @@ const CODES = 'busmhdxf';
 // the island's box (CONFIG.topView), as the server keeps it
 const ISLAND = { x0: -62, x1: 82, z0: -50, z1: 52 };
 const CAP = { catches: 60, followed: 3, runs: 40, temps: 40, trails: 5, pts: 60, stamps: 30 };
-const STAMP_RE = /^(setup|crested|brown|green|bark|knight|croc|field|perch|kit)\.[a-z]{3,10}$/;
+const STAMP_RE = /^(setup|crested|brown|green|bark|knight|basilisk|croc|field|perch|kit)\.[a-z]{3,10}$/;
 // where each kind of points goes on the notebook's summary page
 const BUCKET = {
   catch: 'catch', recapture: 'catch', measured: 'catch', notes: 'catch',
@@ -38,6 +38,7 @@ const BUCKET = {
   mission: 'kit', scan: 'kit', plant: 'kit', drone: 'kit',
   spot: 'spot', 'croc spotted': 'spot',
   croc: 'croc',
+  pole: 'croc', // (the board's notebook keeps one part for the day's losses)
 };
 // the aerial photo's thumbnail: tried at these widths and qualities until it is small
 // enough (the server takes 40 KB and 480 px at most)

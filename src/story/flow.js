@@ -38,6 +38,7 @@ import { buildTasks, TASKS } from '../game/tasks.js';
 import * as kit from '../ui/kit.js';
 import { SCRIPT, JAMES, say, pick } from './script.js';
 import { buildJames } from './james.js';
+import { buildJon } from './jon.js';
 import { buildStation, TABLE } from './station.js';
 import { flossMinigame } from './floss.js';
 import { buildKitHunt, KIT_IDS } from './kit_hunt.js';
@@ -229,6 +230,10 @@ export async function build(game) {
     get sunPhase() { return state.phase === 'survey' ? sun.phase : null; }, // as the Today card shows it
   };
   game.story = story; // (main.js sets it too; the kit hunt reads it before)
+  // Jon, from the lab (jon.js): he just appears on the survey day, talks with the story's
+  // camera and is gone when you look back
+  const jon = buildJon(game, { story, shot, endShot, parent: group });
+  story.jon = jon;
   // Each flow carries its own token (alive), so a flow left behind (back to the title,
   // Skip, Start again) stops at its next step, and any wait it is in ends at once
   // ('story:abort'), taking its listeners with it.
@@ -1328,6 +1333,72 @@ export async function build(game) {
 
   // ---- talking to James during the day
   const talkOffer = { score: 5, prompt: SCRIPT.talkPrompt, run: null };
+  // A pole broken after the free one: James has the spare, so the maps point to him
+  // until he hands it over.
+  const poleOut = () => { const B = game.catching && game.catching.breaks; return !!(B && B.noPole && !B.onTheWay); };
+  const poleMapMark = { x: 0, z: 0, colour: '#f5b82e', pulse: true, label: 'New pole' };
+  let poleMapOff = null;
+  events.on('pole:break', (e) => {
+    const M = game.ui && game.ui.maps;
+    if (!e || e.free || poleMapOff || !M || !M.addMarker) return;
+    poleMapMark.x = james.position.x;
+    poleMapMark.z = james.position.z;
+    poleMapOff = M.addMarker(poleMapMark);
+  });
+  events.on('pole:new', () => { if (poleMapOff) { poleMapOff(); poleMapOff = null; } });
+
+  // A friendly word on the radio towards the field jobs (RULES.kitNudge): after a good run
+  // of catches with one not done today, James names it and the maps mark where it is (the
+  // station for the kit, the nearest logger) until it is done or the day ends. Never in a
+  // catch, a mission, a talk or a cutscene, and only once nothing has been going on for a
+  // moment. since: catches since the last field job done (a mission finished, a logger
+  // read) or the last nudge; null before either today.
+  const KIT_JOBS = ['tls', 'drone', 'rtk', 'loggers'];
+  const kitMarkLabel = { tls: 'Laser scanner', drone: 'Drone', rtk: 'RTK rover', loggers: 'Logger' };
+  const kitNudge = { n: 0, since: null, last: -Infinity, said: null, calm: 0, off: null, mark: { x: 0, z: 0, colour: '#ff6fa8', label: '' } };
+  const kitUnmark = (id) => { if (kitNudge.off && (!id || id === kitNudge.said)) { kitNudge.off(); kitNudge.off = null; } };
+  const kitReset = () => { kitUnmark(); kitNudge.n = 0; kitNudge.since = null; kitNudge.last = -Infinity; kitNudge.said = null; };
+  events.on('day:new', kitReset);
+  events.on('phase:change', kitReset);
+  events.on('lizard:caught', () => { if (kitNudge.since != null) kitNudge.since++; });
+  events.on('mission:start', (e) => kitUnmark(e && e.id));
+  events.on('mission:done', (e) => { kitNudge.since = 0; kitUnmark(e && e.id); });
+  events.on('logger:read', () => { kitNudge.since = 0; kitUnmark('loggers'); });
+  // the jobs not done today, the kit first
+  function jobsLeft() {
+    const K = game.missions, out = (K && K.offerable ? K.offerable() : []).map((m) => m.id);
+    if (!(state.today.loggersRead > 0)) out.push('loggers');
+    return KIT_JOBS.filter((id) => out.includes(id));
+  }
+  function kitNudgeCheck(dt) {
+    const R = RULES.kitNudge, K = game.missions;
+    const free = !kit.busy() && !story.cutscene && !(game.catching && game.catching.busy) && !(K && K.activeMission && K.activeMission()) && jon.state === 'away';
+    kitNudge.calm = free ? kitNudge.calm + dt : 0;
+    if (kitNudge.calm < 2.5 || kitNudge.n >= R.most || state.clock.hours - kitNudge.last < R.gap) return;
+    let caught = 0;
+    for (const [k, n] of Object.entries(state.today.caught || {})) if (k !== 'croc') caught += n;
+    if (!((kitNudge.since != null && kitNudge.since >= R.since) || (kitNudge.n === 0 && caught >= R.catches))) return;
+    const left = jobsLeft();
+    const id = left.find((j) => j !== kitNudge.said) || left[0];
+    if (!id) return;
+    kitNudge.n++;
+    kitNudge.since = 0;
+    kitNudge.last = state.clock.hours;
+    kitUnmark();
+    kitNudge.said = id;
+    word(SCRIPT.survey.kitNudge[id], { icon: id === 'loggers' ? 'logger' : id, ms: 6500 });
+    // the mark: James at the station for the kit, else the nearest logger
+    let at = james.position;
+    if (id === 'loggers') {
+      const p = player.position;
+      for (const l of state.loggers || []) if (at === james.position || Math.hypot(l.x - p.x, l.z - p.z) < Math.hypot(at.x - p.x, at.z - p.z)) at = l;
+    }
+    const M = game.ui && game.ui.maps;
+    kitNudge.mark.x = at.x;
+    kitNudge.mark.z = at.z;
+    kitNudge.mark.label = kitMarkLabel[id];
+    if (M && M.addMarker) kitNudge.off = M.addMarker(kitNudge.mark);
+  }
   const rng = Math.random;
   registerInteraction({
     id: 'james-talk',
@@ -1337,6 +1408,7 @@ export async function build(game) {
       if (d > RULES.reach.james) return null;
       talkOffer.score = 5 - d;
       talkOffer.run = talkToJames;
+      talkOffer.prompt = poleOut() ? SCRIPT.breaks.askPrompt : SCRIPT.talkPrompt;
       return talkOffer;
     },
   });
@@ -1407,6 +1479,13 @@ export async function build(game) {
   }
 
   async function chat(opts = {}) {
+    // a broken pole first (src/catch/breaks.js): his line goes by how it broke
+    if (state.phase === 'survey' && poleOut()) {
+      const B = game.catching.breaks;
+      await talk([SCRIPT.breaks.replace[B.kind] || SCRIPT.breaks.replace.careless]);
+      if (state.phase === 'survey') B.replace();
+      return;
+    }
     if (state.phase === 'survey' && opts.kit !== false) {
       const k = await kitChat();
       if (k) return k;
@@ -1485,6 +1564,12 @@ export async function build(game) {
     }
   }
 
+  // the season's first basilisk seen running across the water (src/wildlife/basilisk.js):
+  // a word from James over the radio
+  events.on('basilisk:waterrun', (e) => {
+    if (e && e.first && state.phase === 'survey') word(SCRIPT.survey.basiliskRun, { icon: 'lizard', ms: 4600 });
+  });
+
   // the croc's snap: a word from James over the radio, now and then
   events.on('croc:snap', () => {
     if (state.phase === 'survey' && rng() < 0.5) setTimeout(() => { if (!kit.busy()) kit.toast(`James: ${pick(SCRIPT.survey.crocSnap, rng)}`, { icon: 'croc', tone: 'warn' }); }, 1600);
@@ -1522,6 +1607,7 @@ export async function build(game) {
     }
     if (state.phase === 'survey' && !story.cutscene) {
       followSun(dt);
+      kitNudgeCheck(dt);
       saveT += dt;
       if (saveT > 60) { saveT = 0; save(); }
       if (tickClock(dt)) story.endDay();
@@ -1530,6 +1616,8 @@ export async function build(game) {
         kit.toast(`James: ${say(SCRIPT.survey.lastHour, { name: name() })}`, { icon: 'clock', tone: 'warn' });
       }
     }
+    // (last: whether Jon is in view is judged on this frame's camera)
+    jon.update(dt, t);
   }
 
   // The first frame: every system is built, so the phase can start.
